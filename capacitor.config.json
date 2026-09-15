@@ -1,0 +1,6 @@
+{
+  "appId": "com.worldradio.translator",
+  "appName": "WorldRadioTranslator",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

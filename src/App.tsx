@@ -58,6 +58,7 @@ import {
 } from "./types";
 import { LiveTranslateClient, LiveTranslateState } from "./services/liveTranslateClient";
 import { audioEngine } from "./services/audioEngine";
+import { getFallbackProfileByCoords, getDefaultLocationProfile } from "./services/geoFallback";
 
 const SUPPORTED_LANGUAGES = [
   "Arabic",
@@ -750,13 +751,17 @@ export default function App() {
         radiusKm: initialRadius,
       }),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         setSelectedProfile(data);
         setProfileLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load initial vicinity profile:", err);
+        console.warn("Initial vicinity profile fallback used:", err?.message || err);
+        setSelectedProfile(getDefaultLocationProfile("France", "FR"));
         setProfileLoading(false);
       });
   }, []);
@@ -774,10 +779,16 @@ export default function App() {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       const data: LocationGeoProfile = await response.json();
       setSelectedProfile(data);
     } catch (err) {
-      console.error("Geocoding query failed:", err);
+      console.warn("Geocoding using offline mathematical fallback:", err);
+      const fallback = getFallbackProfileByCoords(lat, lng);
+      setSelectedProfile(fallback);
     } finally {
       setProfileLoading(false);
     }

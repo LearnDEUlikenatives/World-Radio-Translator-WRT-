@@ -851,50 +851,44 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-4">
           
           {/* Left: Brand Logo & View Switcher */}
-          <div className="flex items-center justify-between gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-4 w-full md:w-auto">
             <div className="flex items-center gap-2.5 flex-shrink-0">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
                 <Radio className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h1 className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">
-                    World Radio
-                  </h1>
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono uppercase">
-                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                    Live AI
-                  </span>
-                </div>
+              <div className="flex flex-col">
+                <h1 className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight leading-tight">
+                  World Radio
+                </h1>
                 <p className="text-[10px] text-slate-400 hidden lg:block">
                   Live speech-to-speech AI translation & Web Audio DSP
                 </p>
               </div>
             </div>
 
-            {/* Center Tabs: Explore vs Library */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
+            {/* Navigation Tabs: Explore vs Library aligned cleanly next to brand */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 flex-shrink-0">
               <button
                 onClick={() => setCurrentView("explore")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   currentView === "explore"
                     ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                <Globe2 className="w-3.5 h-3.5" />
+                <Globe2 className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>Explore</span>
               </button>
 
               <button
                 onClick={() => setCurrentView("library")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   currentView === "library"
                     ? "bg-white dark:bg-slate-900 text-rose-500 shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                <Heart className="w-3.5 h-3.5 fill-current" />
+                <Heart className="w-3.5 h-3.5 fill-current flex-shrink-0" />
                 <span>Library ({favorites.length + savedTranscripts.length})</span>
               </button>
             </div>

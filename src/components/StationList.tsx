@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { RadioStation, LocationGeoProfile } from "../types";
-import { Radio, Play, Volume2, ShieldAlert, BadgeCheck, Search, Sparkles, Heart, Filter, X } from "lucide-react";
+import { Radio, Play, Volume2, ShieldAlert, BadgeCheck, Search, Sparkles, Heart, Filter, X, Navigation } from "lucide-react";
 import { getCuratedStationsForCountry } from "../data/regionalBroadcasters";
 
 interface StationListProps {
   currentCountryProfile: LocationGeoProfile | null;
+  selectedCoords?: { lat: number; lng: number } | null;
+  radiusKm?: number;
   onSelectStation: (station: RadioStation) => void;
   activeStation: RadioStation | null;
   isPlaying: boolean;
@@ -14,20 +16,10 @@ interface StationListProps {
   onSurpriseMe?: () => void;
 }
 
-const CATEGORY_PILLS = [
-  { id: "all", label: "All Frequencies" },
-  { id: "news", label: "News & World" },
-  { id: "talk", label: "Talk Radio" },
-  { id: "pop", label: "Top 40 / Pop" },
-  { id: "jazz", label: "Jazz & Blues" },
-  { id: "electronic", label: "Electronic / Dance" },
-  { id: "classical", label: "Classical" },
-  { id: "ambient", label: "Chillout / Ambient" },
-  { id: "sports", label: "Sports" }
-];
-
 export default function StationList({
   currentCountryProfile,
+  selectedCoords,
+  radiusKm = 250,
   onSelectStation,
   activeStation,
   isPlaying,
@@ -156,51 +148,68 @@ export default function StationList({
   ];
 
   useEffect(() => {
-    if (!currentCountryProfile) {
-      setStations(DEFAULT_GLOBAL_STATIONS);
-      return;
-    }
-
     setLoading(true);
     setError(null);
     setSearchQuery("");
 
-    const primaryCode = (currentCountryProfile.countryCode || "").toUpperCase().trim();
+    const scanRadius = radiusKm || 250;
+    const coordsQuery = selectedCoords
+      ? `&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`
+      : "";
+
+    const primaryCode = (currentCountryProfile?.countryCode || "").toUpperCase().trim();
     const curatedRegional = getCuratedStationsForCountry(primaryCode);
 
     const rawCodes = currentCountryProfile?.countryCodes && currentCountryProfile.countryCodes.length > 0
       ? currentCountryProfile.countryCodes
-      : [currentCountryProfile?.countryCode];
+      : currentCountryProfile?.countryCode ? [currentCountryProfile.countryCode] : [];
 
-    const codesToQuery = (rawCodes || []).filter(
+    const codesToQuery = rawCodes.filter(
       (code): code is string => typeof code === "string" && code.trim().length > 0
     );
 
-    const fetchPromises = codesToQuery.map(codeString => {
-      const code = codeString.toLowerCase().trim();
-      return fetch(`/api/stations?countrycode=${code}&limit=30`)
-        .then((res) => {
-          if (!res.ok) return [];
-          return res.json();
-        })
-        .catch(() => []);
-    });
+    const fetchPromises: Promise<RadioStation[]>[] = [];
 
-    // Also fetch by country name in parallel to guarantee matches
-    const countryNamePromise = currentCountryProfile.country
-      ? fetch(`/api/stations?country=${encodeURIComponent(currentCountryProfile.country)}&limit=30`)
-          .then(res => res.ok ? res.json() : [])
+    // If country code(s) exist, query station proxy with coordinates and limit 100
+    if (codesToQuery.length > 0) {
+      codesToQuery.forEach((codeString) => {
+        const code = codeString.toLowerCase().trim();
+        fetchPromises.push(
+          fetch(`/api/stations?countrycode=${code}&limit=100${coordsQuery}`)
+            .then((res) => (res.ok ? res.json() : []))
+            .catch(() => [])
+        );
+      });
+    }
+
+    // Also fetch by country name in parallel
+    if (currentCountryProfile?.country) {
+      fetchPromises.push(
+        fetch(`/api/stations?country=${encodeURIComponent(currentCountryProfile.country)}&limit=100${coordsQuery}`)
+          .then((res) => (res.ok ? res.json() : []))
           .catch(() => [])
-      : Promise.resolve([]);
+      );
+    }
 
-    Promise.all([...fetchPromises, countryNamePromise])
+    // Always execute direct coordinate geo-radius scan whenever coordinates are selected
+    if (selectedCoords) {
+      fetchPromises.push(
+        fetch(`/api/stations?limit=100&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`)
+          .then((res) => (res.ok ? res.json() : []))
+          .catch(() => [])
+      );
+    }
+
+    // Fallback if neither profile nor coordinates exist
+    if (fetchPromises.length === 0) {
+      setStations(DEFAULT_GLOBAL_STATIONS);
+      setLoading(false);
+      return;
+    }
+
+    Promise.all(fetchPromises)
       .then((resultsArray: RadioStation[][]) => {
         let combinedStations: RadioStation[] = resultsArray.flat();
-
-        // Include curated local stations at high priority if matched
-        if (curatedRegional.length > 0) {
-          combinedStations = [...curatedRegional, ...combinedStations];
-        }
 
         const seenUuids = new Set<string>();
         combinedStations = combinedStations.filter((s) => {
@@ -211,26 +220,25 @@ export default function StationList({
           return true;
         });
 
-        combinedStations.sort((a, b) => (b.clickcount || b.votes || 0) - (a.clickcount || a.votes || 0));
-
         if (combinedStations.length === 0) {
           if (curatedRegional.length > 0) {
             setStations(curatedRegional);
           } else {
-            // Give customized regional labels so user sees country context
-            setStations(DEFAULT_GLOBAL_STATIONS.map(s => ({
-              ...s,
-              state: `${currentCountryProfile.country} & Global Relays`
-            })));
+            setStations(
+              DEFAULT_GLOBAL_STATIONS.map((s) => ({
+                ...s,
+                state: `${currentCountryProfile?.country || "Scanned Region"} & Relays`
+              }))
+            );
           }
-          setLoading(false);
         } else {
-          setStations(combinedStations.slice(0, 45));
-          setLoading(false);
+          // Provide up to 100 stations for a vast and diverse scan
+          setStations(combinedStations.slice(0, 100));
         }
+        setLoading(false);
       })
       .catch((err) => {
-        console.warn("Radio lookup error, loading stable fallback", err);
+        console.warn("Radio lookup error, loading fallback:", err);
         if (curatedRegional.length > 0) {
           setStations(curatedRegional);
         } else {
@@ -238,7 +246,7 @@ export default function StationList({
         }
         setLoading(false);
       });
-  }, [currentCountryProfile]);
+  }, [currentCountryProfile, selectedCoords?.lat, selectedCoords?.lng, radiusKm]);
 
   // Handle "Surprise Me"
   const handleTriggerSurprise = () => {
@@ -253,11 +261,34 @@ export default function StationList({
     }
   };
 
+  // Count stations confirmed within scan radius
+  const scanRadius = radiusKm || 250;
+  const stationsWithinRadius = stations.filter(
+    (s) => s.withinRadius === true || (s.distanceKm !== undefined && s.distanceKm !== null && s.distanceKm <= scanRadius)
+  );
+  const hasRadiusMatches = stations.some(
+    (s) => s.distanceKm !== undefined && s.distanceKm !== null && s.distanceKm <= scanRadius
+  );
+
+  // Dynamic category pills
+  const categoryPills = [
+    { id: "all", label: `All Scanned (${stations.length})` },
+    ...(hasRadiusMatches
+      ? [{ id: "within_radius", label: `🎯 Within ${scanRadius}km (${stationsWithinRadius.length})` }]
+      : []),
+    { id: "news", label: "News & Talk" },
+    { id: "pop", label: "Pop & Hits" },
+    { id: "rock", label: "Rock & Alternative" },
+    { id: "electronic", label: "Electronic / Dance" },
+    { id: "jazz", label: "Jazz & Blues" },
+    { id: "classical", label: "Classical & Ambient" }
+  ];
+
   // Filter stations based on search query, selected category pill, and tag searches
   const filteredStations = stations.filter((station) => {
     const sQuery = searchQuery.trim().toLowerCase();
     const tQuery = tagQuery.trim().toLowerCase();
-    
+
     const matchesKeyword = sQuery
       ? (station.name || "").toLowerCase().includes(sQuery) ||
         (station.country || "").toLowerCase().includes(sQuery) ||
@@ -270,9 +301,12 @@ export default function StationList({
       ? station.tags && String(station.tags).toLowerCase().includes(tQuery)
       : true;
 
-    const matchesCategory = selectedCategory === "all"
-      ? true
-      : station.tags && station.tags.toLowerCase().includes(selectedCategory);
+    let matchesCategory = true;
+    if (selectedCategory === "within_radius") {
+      matchesCategory = station.withinRadius === true || (station.distanceKm !== undefined && station.distanceKm !== null && station.distanceKm <= scanRadius);
+    } else if (selectedCategory !== "all") {
+      matchesCategory = !!(station.tags && station.tags.toLowerCase().includes(selectedCategory));
+    }
 
     return matchesKeyword && matchesTag && matchesCategory;
   });
@@ -281,24 +315,35 @@ export default function StationList({
 
   return (
     <div className="flex flex-col h-full bg-transparent gap-3.5">
-      
       {/* Search Header Panel & Controls */}
       <div className="flex flex-col gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="font-display font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
               <span>
                 {isCurrentlyLoading
-                  ? "Scanning Regional Airwaves..."
+                  ? `Scanning ${scanRadius} km Radius Airwaves...`
                   : currentCountryProfile
-                  ? `${currentCountryProfile.country} Radio Streams`
-                  : "Featured Global Broadcasts"}
+                  ? `${currentCountryProfile.country} (${scanRadius} km Scan)`
+                  : `Global Frequency Scanner (${scanRadius} km)`}
               </span>
             </h3>
-            <p className="text-[11px] text-slate-400 font-mono">
-              {isCurrentlyLoading
-                ? "Connecting to satellite and terrestrial frequencies..."
-                : `${filteredStations.length} live stations available`}
+            <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+              {isCurrentlyLoading ? (
+                "Connecting to satellite and terrestrial frequencies..."
+              ) : selectedCoords ? (
+                <>
+                  <span>Pinned: {selectedCoords.lat.toFixed(2)}°, {selectedCoords.lng.toFixed(2)}°</span>
+                  <span>•</span>
+                  <span>{filteredStations.length} live stations detected</span>
+                </>
+              ) : (
+                `${filteredStations.length} live stations available`
+              )}
             </p>
           </div>
 
@@ -320,7 +365,7 @@ export default function StationList({
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search stations by name, country, genre (e.g. BBC, Jazz, Tokyo, Salsa)..."
+            placeholder="Search scanned stations by name, city, genre (e.g. Metro, Jacaranda, BBC, Jazz)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-9 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 transition-colors"
@@ -337,7 +382,7 @@ export default function StationList({
 
         {/* Category Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-          {CATEGORY_PILLS.map((pill) => (
+          {categoryPills.map((pill) => (
             <button
               key={pill.id}
               onClick={() => setSelectedCategory(pill.id)}
@@ -379,12 +424,13 @@ export default function StationList({
             const isCurrent = activeStation?.stationuuid === station.stationuuid;
             const tagsList = station.tags ? station.tags.split(",").slice(0, 3) : ["variety"];
             const isFav = favorites.some((f) => f.stationuuid === station.stationuuid);
+            const isNearby = station.distanceKm !== undefined && station.distanceKm !== null && station.distanceKm <= scanRadius;
 
             return (
               <div
                 key={station.stationuuid}
                 onClick={() => onSelectStation(station)}
-                className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between h-[155px] relative cursor-pointer group bg-white dark:bg-slate-900 shadow-sm ${
+                className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between min-h-[155px] relative cursor-pointer group bg-white dark:bg-slate-900 shadow-sm ${
                   isCurrent
                     ? "border-emerald-500 ring-2 ring-emerald-500/20 shadow-emerald-500/10"
                     : "border-slate-200/70 dark:border-slate-800 hover:border-emerald-500/40 hover:shadow"
@@ -418,13 +464,29 @@ export default function StationList({
                   <div className="flex-1 overflow-hidden min-w-0">
                     <h4 className="font-display font-bold text-xs text-slate-800 dark:text-slate-100 truncate flex items-center gap-1 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors">
                       {station.name}
-                      {station.votes > 8000 && (
+                      {station.votes && station.votes > 8000 && (
                         <BadgeCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                       )}
                     </h4>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-300 truncate block mt-0.5">
-                      {station.country || station.state || "Regional Broadcast"}
-                    </span>
+
+                    {/* Regional & Distance Badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-300 truncate max-w-[130px]">
+                        {station.state || station.country || "Regional Stream"}
+                      </span>
+                      {station.distanceKm !== undefined && station.distanceKm !== null && (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-0.5 ${
+                            isNearby
+                              ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                          }`}
+                        >
+                          <Navigation className="w-2.5 h-2.5" />
+                          {station.distanceKm} km
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Favorite button */}
@@ -471,11 +533,13 @@ export default function StationList({
                   </div>
 
                   {/* Play Indicator */}
-                  <div className={`p-1.5 rounded-xl border transition-all ${
-                    isCurrent
-                      ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
-                      : "bg-slate-50 dark:bg-slate-950 text-emerald-500 border-slate-200/50 dark:border-slate-800 group-hover:bg-emerald-500 group-hover:text-white"
-                  }`}>
+                  <div
+                    className={`p-1.5 rounded-xl border transition-all ${
+                      isCurrent
+                        ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
+                        : "bg-slate-50 dark:bg-slate-950 text-emerald-500 border-slate-200/50 dark:border-slate-800 group-hover:bg-emerald-500 group-hover:text-white"
+                    }`}
+                  >
                     {isCurrent && isPlaying ? (
                       <Volume2 className="w-3.5 h-3.5 animate-pulse" />
                     ) : (

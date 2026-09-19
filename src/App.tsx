@@ -381,7 +381,7 @@ export default function App() {
   const [profileLoading, setProfileLoading] = useState<boolean>(false);
 
   const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [radiusKm, setRadiusKm] = useState<number>(500);
+  const [radiusKm, setRadiusKm] = useState<number>(250);
   const [copied, setCopied] = useState(false);
 
   // Real-time Voice to Voice Gemini Live Translate Setup
@@ -396,6 +396,47 @@ export default function App() {
   const [liveTargetLang, setLiveTargetLang] = useState<string>("English");
   const [copiedTranscript, setCopiedTranscript] = useState(false);
   const transcriptContainerRef = useRef<HTMLDivElement | null>(null);
+  const toolbarScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Allow smooth touch sliding & mouse drag-to-scroll for horizontal toolbar on mobile
+  useEffect(() => {
+    const el = toolbarScrollRef.current;
+    if (!el) return;
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+
+    const onMouseDown = (e: MouseEvent) => {
+      isDown = true;
+      startX = e.pageX - el.offsetLeft;
+      scrollLeft = el.scrollLeft;
+    };
+    const onMouseLeave = () => {
+      isDown = false;
+    };
+    const onMouseUp = () => {
+      isDown = false;
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - el.offsetLeft;
+      const walk = (x - startX) * 1.5;
+      el.scrollLeft = scrollLeft - walk;
+    };
+
+    el.addEventListener("mousedown", onMouseDown);
+    el.addEventListener("mouseleave", onMouseLeave);
+    el.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("mousemove", onMouseMove);
+
+    return () => {
+      el.removeEventListener("mousedown", onMouseDown);
+      el.removeEventListener("mouseleave", onMouseLeave);
+      el.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("mousemove", onMouseMove);
+    };
+  }, []);
 
   // Load AdMob configuration
   useEffect(() => {
@@ -736,7 +777,7 @@ export default function App() {
 
     const initialLat = urlLat ? parseFloat(urlLat) : 46.2276;
     const initialLng = urlLng ? parseFloat(urlLng) : 2.2137;
-    const initialRadius = urlRadius ? parseInt(urlRadius, 10) : 500;
+    const initialRadius = urlRadius ? parseInt(urlRadius, 10) : 250;
 
     setSelectedCoords({ lat: initialLat, lng: initialLng });
     setRadiusKm(initialRadius);
@@ -847,17 +888,17 @@ export default function App() {
     }`}>
       
       {/* Top Application Navigation Header */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-3 sm:px-5 py-2.5 transition-colors">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-4">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-2.5 sm:px-5 py-2 sm:py-2.5 transition-colors">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4">
           
-          {/* Left: Brand Logo & View Switcher */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-4 w-full md:w-auto">
-            <div className="flex items-center gap-2.5 flex-shrink-0">
+          {/* Left: Brand Logo & View Switcher (Explore & Library adjusted cleanly to the left for phone mode) */}
+          <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3.5 w-full md:w-auto flex-nowrap">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
                 <Radio className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div className="flex flex-col">
-                <h1 className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight leading-tight">
+                <h1 className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight leading-tight whitespace-nowrap">
                   World Radio
                 </h1>
                 <p className="text-[10px] text-slate-400 hidden lg:block">
@@ -866,11 +907,11 @@ export default function App() {
               </div>
             </div>
 
-            {/* Navigation Tabs: Explore vs Library aligned cleanly next to brand */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 flex-shrink-0">
+            {/* Navigation Tabs: Explore vs Library aligned cleanly to the left next to brand */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 flex-shrink-0 ml-auto sm:ml-0">
               <button
                 onClick={() => setCurrentView("explore")}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap flex-shrink-0 ${
                   currentView === "explore"
                     ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -882,11 +923,12 @@ export default function App() {
 
               <button
                 onClick={() => setCurrentView("library")}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap flex-shrink-0 ${
                   currentView === "library"
                     ? "bg-white dark:bg-slate-900 text-rose-500 shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
+                title="Open Library & Favorites"
               >
                 <Heart className="w-3.5 h-3.5 fill-current flex-shrink-0" />
                 <span>Library ({favorites.length + savedTranscripts.length})</span>
@@ -895,25 +937,29 @@ export default function App() {
           </div>
 
           {/* Right Toolbar Actions: Studio, Upfront Register/Account, Upgrade Pro, Day/Night */}
-          <div className="flex items-center justify-start md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto touch-scroll-x py-1 px-0.5 sm:px-0 scroll-smooth">
+          {/* Horizontally slideable left and right on phone mode */}
+          <div
+            ref={toolbarScrollRef}
+            className="flex items-center justify-start md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto overflow-x-auto flex-nowrap py-1 px-1 sm:px-0 scroll-smooth touch-scroll-x select-none"
+          >
             {/* Equalizer / Studio Drawer Toggle */}
             <button
               onClick={() => setShowAudioStudio(!showAudioStudio)}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-shrink-0 whitespace-nowrap ${
                 showAudioStudio
                   ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
                   : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500/50"
               }`}
               title="Toggle Web Audio Studio (Equalizer & Visualizer)"
             >
-              <Activity className="w-3.5 h-3.5 text-emerald-500" />
+              <Activity className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
               <span>Studio</span>
             </button>
 
             {/* Upfront Free Registration / User Account */}
             <button
               onClick={() => setShowRegisterModal(true)}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-shrink-0 whitespace-nowrap ${
                 userEmail
                   ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
                   : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500/50"
@@ -922,12 +968,12 @@ export default function App() {
             >
               {userEmail ? (
                 <>
-                  <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="max-w-[80px] sm:max-w-[110px] truncate">{userName || userEmail.split("@")[0]}</span>
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  <span className="max-w-[85px] sm:max-w-[110px] truncate">{userName || userEmail.split("@")[0]}</span>
                 </>
               ) : (
                 <>
-                  <UserPlus className="w-3.5 h-3.5 text-emerald-500" />
+                  <UserPlus className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                   <span>Register Free</span>
                 </>
               )}
@@ -937,23 +983,23 @@ export default function App() {
             {subscription.tier === "free" ? (
               <button
                 onClick={() => setShowPaywall(true)}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 shadow-sm shadow-amber-500/20 cursor-pointer flex-shrink-0 active:scale-95"
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 shadow-sm shadow-amber-500/20 cursor-pointer flex-shrink-0 whitespace-nowrap active:scale-95"
                 title="Upgrade to Pro: Ad-Free & Unlimited 24/7 Translation"
               >
-                <Crown className="w-3.5 h-3.5 fill-current" />
+                <Crown className="w-3.5 h-3.5 fill-current flex-shrink-0" />
                 <span>Upgrade Pro</span>
               </button>
             ) : (
               <button
                 onClick={() => setShowManageSub(true)}
-                className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all flex items-center gap-1.5 cursor-pointer border flex-shrink-0 ${
+                className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all flex items-center gap-1.5 cursor-pointer border flex-shrink-0 whitespace-nowrap ${
                   subscription.tier === "vip"
                     ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
                     : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
                 }`}
                 title="Manage membership"
               >
-                <Crown className="w-3.5 h-3.5 fill-current" />
+                <Crown className="w-3.5 h-3.5 fill-current flex-shrink-0" />
                 <span className="capitalize">{subscription.tier} Active</span>
               </button>
             )}
@@ -961,10 +1007,10 @@ export default function App() {
             {/* Day / Night Mode Switcher */}
             <button
               onClick={toggleDarkMode}
-              className="p-1.5 sm:p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer flex-shrink-0"
+              className="p-1.5 sm:p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer flex-shrink-0 whitespace-nowrap"
               title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
-              {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+              {darkMode ? <Sun className="w-4 h-4 text-amber-400 flex-shrink-0" /> : <Moon className="w-4 h-4 text-slate-600 flex-shrink-0" />}
             </button>
           </div>
 
@@ -1362,6 +1408,8 @@ export default function App() {
               <section className="flex-1">
                 <StationList
                   currentCountryProfile={selectedProfile}
+                  selectedCoords={selectedCoords}
+                  radiusKm={radiusKm}
                   onSelectStation={handleSelectStation}
                   activeStation={activeStation}
                   isPlaying={isPlaying}

@@ -1,21 +1,25 @@
 export interface RadioStation {
-  changeid: string;
+  changeid?: string;
   stationuuid: string;
   name: string;
   url: string;
   url_resolved: string;
-  homepage: string;
-  favicon: string;
-  tags: string;
-  country: string;
-  countrycode: string;
-  state: string;
-  language: string;
-  votes: number;
-  clickcount: number;
-  codec: string;
-  bitrate: number;
+  homepage?: string;
+  favicon?: string;
+  tags?: string;
+  country?: string;
+  countrycode?: string;
+  state?: string;
+  language?: string;
+  votes?: number;
+  clickcount?: number;
+  codec?: string;
+  bitrate?: number;
   currentShow?: string;
+  geo_lat?: number | null;
+  geo_long?: number | null;
+  distanceKm?: number;
+  withinRadius?: boolean;
 }
 
 export interface LocationGeoProfile {

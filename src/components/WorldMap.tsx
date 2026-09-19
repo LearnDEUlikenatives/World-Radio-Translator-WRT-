@@ -274,6 +274,50 @@ export default function WorldMap({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
+        {/* Floating Scan Radius HUD / Badge */}
+        <div className="absolute bottom-2.5 left-2.5 z-20 flex flex-wrap items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-md text-[11px]">
+          <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">250 km Radar Scan</span>
+            {selectedCoords ? (
+              <span className="font-mono text-slate-500 dark:text-slate-400 text-[10px] hidden sm:inline">
+                [{selectedCoords.lat.toFixed(2)}°, {selectedCoords.lng.toFixed(2)}°]
+              </span>
+            ) : (
+              <span className="text-slate-400 text-[10px] hidden sm:inline">
+                Click map to scan
+              </span>
+            )}
+          </div>
+
+          {/* Quick Radius Presets */}
+          {setRadiusKm && (
+            <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2">
+              {[150, 250, 500].map((r) => (
+                <button
+                  key={r}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRadiusKm(r);
+                    if (onRadiusChangeEnd) onRadiusChangeEnd();
+                  }}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer ${
+                    (radiusKm || 250) === r
+                      ? "bg-emerald-500 text-white font-bold"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                  title={`Scan within ${r} km radius`}
+                >
+                  {r}km
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {loadingMap ? (
           <div className="absolute inset-0 flex flex-col justify-center items-center bg-slate-50 dark:bg-slate-950 font-display text-slate-500">
             <Globe className="w-10 h-10 animate-spin text-emerald-500 mb-3" />
@@ -309,15 +353,76 @@ export default function WorldMap({
                 })}
               </g>
 
-              {/* TRANSLUCENT VICINITY CIRCLE OVERLAY & DECORATIVE TARGETING RETICLE */}
+              {/* 250KM SCANNING RADAR OVERLAY & ACTIVE SONAR EMITTER */}
               {selectedCoords && (() => {
                 const { x, y } = getSvgCoordinates(selectedCoords.lat, selectedCoords.lng);
+                const effectiveRadius = radiusKm || 250;
+                // Equirectangular projection scale: 1 deg lat = 111.139 km, y scale = -1.9940
+                const ry = Math.max(3.5, (effectiveRadius / 111.139) * 1.9940);
+                const cosLat = Math.max(0.18, Math.cos((selectedCoords.lat * Math.PI) / 180));
+                const rx = Math.max(3.5, (effectiveRadius / (111.139 * cosLat)) * 1.9018);
+
                 return (
                   <g id="vicinity_overlay_group" className="pointer-events-none">
-                    {/* Centered locator glowing beacon */}
                     <g transform={`translate(${x}, ${y})`}>
-                      <circle cx="0" cy="0" r="14" fill="rgba(16, 185, 129, 0.25)" className="animate-ping" style={{ animationDuration: "1.8s" }} />
-                      <circle cx="0" cy="0" r="5" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" className="shadow" />
+                      {/* Translucent 250km Radar Scanning Field */}
+                      <ellipse
+                        cx="0"
+                        cy="0"
+                        rx={rx}
+                        ry={ry}
+                        fill="rgba(16, 185, 129, 0.12)"
+                        stroke="#10b981"
+                        strokeWidth="0.8"
+                        strokeDasharray="2.5 1.5"
+                        className="animate-pulse"
+                      />
+
+                      {/* Concentric sonar scan rings */}
+                      <ellipse
+                        cx="0"
+                        cy="0"
+                        rx={rx * 0.55}
+                        ry={ry * 0.55}
+                        fill="none"
+                        stroke="rgba(52, 211, 153, 0.4)"
+                        strokeWidth="0.5"
+                        strokeDasharray="1.5 1.5"
+                      />
+
+                      {/* Pulse sonar wave */}
+                      <ellipse
+                        cx="0"
+                        cy="0"
+                        rx={rx * 0.85}
+                        ry={ry * 0.85}
+                        fill="none"
+                        stroke="rgba(16, 185, 129, 0.6)"
+                        strokeWidth="0.75"
+                      />
+
+                      {/* Radar sweep arm line */}
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2={rx * 0.95}
+                        y2="0"
+                        stroke="rgba(52, 211, 153, 0.85)"
+                        strokeWidth="1.1"
+                        strokeLinecap="round"
+                      />
+
+                      {/* Pinned position center beacon */}
+                      <circle cx="0" cy="0" r="12" fill="rgba(16, 185, 129, 0.3)" className="animate-ping" style={{ animationDuration: "2s" }} />
+                      <circle cx="0" cy="0" r="4.2" fill="#10b981" stroke="#ffffff" strokeWidth="1.2" className="shadow" />
+
+                      {/* HUD overlay badge in SVG */}
+                      <g transform={`translate(${rx + 2}, -2)`}>
+                        <rect x="-1" y="-5.5" width="48" height="11" rx="2.5" fill="#0f172a" fillOpacity="0.88" stroke="#10b981" strokeWidth="0.5" />
+                        <text x="23" y="2" textAnchor="middle" fill="#34d399" fontSize="5.5" fontWeight="bold" fontFamily="monospace">
+                          {effectiveRadius}km Scan
+                        </text>
+                      </g>
                     </g>
                   </g>
                 );

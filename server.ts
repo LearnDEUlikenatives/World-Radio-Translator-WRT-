@@ -522,26 +522,83 @@ function getLanguageCode(lang: string | undefined): string {
  */
 function getClosestCountryByCoords(lat: number, lng: number) {
   const targets = [
+    // Africa
+    { country: "South Africa", countryCode: "ZA", state: "Gauteng", lat: -30.55, lng: 22.93 },
+    { country: "Kenya", countryCode: "KE", state: "Nairobi", lat: -1.29, lng: 36.82 },
+    { country: "Nigeria", countryCode: "NG", state: "Lagos", lat: 9.08, lng: 8.67 },
+    { country: "Egypt", countryCode: "EG", state: "Cairo", lat: 26.82, lng: 30.80 },
+    { country: "Morocco", countryCode: "MA", state: "Casablanca", lat: 31.79, lng: -7.09 },
+    { country: "Ghana", countryCode: "GH", state: "Accra", lat: 7.94, lng: -1.02 },
+    { country: "Senegal", countryCode: "SN", state: "Dakar", lat: 14.49, lng: -14.45 },
+    { country: "Ethiopia", countryCode: "ET", state: "Addis Ababa", lat: 9.14, lng: 40.48 },
+    { country: "Tanzania", countryCode: "TZ", state: "Dar es Salaam", lat: -6.36, lng: 34.88 },
+    { country: "Angola", countryCode: "AO", state: "Luanda", lat: -11.20, lng: 17.87 },
+    { country: "Mozambique", countryCode: "MZ", state: "Maputo", lat: -18.66, lng: 35.52 },
+    { country: "Zimbabwe", countryCode: "ZW", state: "Harare", lat: -19.01, lng: 29.15 },
+    { country: "Namibia", countryCode: "NA", state: "Windhoek", lat: -22.95, lng: 18.49 },
+    { country: "Madagascar", countryCode: "MG", state: "Antananarivo", lat: -18.76, lng: 46.86 },
+    { country: "Uganda", countryCode: "UG", state: "Kampala", lat: 1.37, lng: 32.29 },
+    { country: "Algeria", countryCode: "DZ", state: "Algiers", lat: 28.03, lng: 1.65 },
+    { country: "Tunisia", countryCode: "TN", state: "Tunis", lat: 33.88, lng: 9.53 },
+
+    // Europe
     { country: "France", countryCode: "FR", state: "Nouvelle-Aquitaine", lat: 46.22, lng: 2.21 },
-    { country: "United States", countryCode: "US", state: "North America", lat: 37.09, lng: -95.71 },
     { country: "United Kingdom", countryCode: "GB", state: "England", lat: 55.37, lng: -3.43 },
     { country: "Germany", countryCode: "DE", state: "Bavaria", lat: 51.16, lng: 10.45 },
     { country: "Spain", countryCode: "ES", state: "Madrid", lat: 40.46, lng: -3.74 },
     { country: "Italy", countryCode: "IT", state: "Lazio", lat: 41.87, lng: 12.56 },
-    { country: "Brazil", countryCode: "BR", state: "Brasília", lat: -14.23, lng: -51.92 },
+    { country: "Portugal", countryCode: "PT", state: "Lisbon", lat: 39.39, lng: -8.22 },
+    { country: "Netherlands", countryCode: "NL", state: "North Holland", lat: 52.13, lng: 5.29 },
+    { country: "Belgium", countryCode: "BE", state: "Brussels", lat: 50.50, lng: 4.46 },
+    { country: "Switzerland", countryCode: "CH", state: "Zurich", lat: 46.81, lng: 8.22 },
+    { country: "Austria", countryCode: "AT", state: "Vienna", lat: 47.51, lng: 14.55 },
+    { country: "Sweden", countryCode: "SE", state: "Stockholm", lat: 60.12, lng: 18.64 },
+    { country: "Norway", countryCode: "NO", state: "Oslo", lat: 60.47, lng: 8.46 },
+    { country: "Finland", countryCode: "FI", state: "Helsinki", lat: 61.92, lng: 25.74 },
+    { country: "Denmark", countryCode: "DK", state: "Copenhagen", lat: 56.26, lng: 9.50 },
+    { country: "Poland", countryCode: "PL", state: "Warsaw", lat: 51.91, lng: 19.14 },
+    { country: "Czech Republic", countryCode: "CZ", state: "Prague", lat: 49.81, lng: 15.47 },
+    { country: "Greece", countryCode: "GR", state: "Athens", lat: 39.07, lng: 21.82 },
+    { country: "Ireland", countryCode: "IE", state: "Dublin", lat: 53.41, lng: -8.24 },
+    { country: "Romania", countryCode: "RO", state: "Bucharest", lat: 45.94, lng: 24.96 },
+    { country: "Ukraine", countryCode: "UA", state: "Kyiv", lat: 48.37, lng: 31.16 },
+    { country: "Russia", countryCode: "RU", state: "Moscow", lat: 61.52, lng: 105.31 },
+
+    // Americas
+    { country: "United States", countryCode: "US", state: "North America", lat: 37.09, lng: -95.71 },
+    { country: "Canada", countryCode: "CA", state: "Ontario", lat: 56.13, lng: -106.34 },
     { country: "Mexico", countryCode: "MX", state: "CDMX", lat: 23.63, lng: -102.55 },
+    { country: "Brazil", countryCode: "BR", state: "Brasília", lat: -14.23, lng: -51.92 },
     { country: "Argentina", countryCode: "AR", state: "Buenos Aires", lat: -38.41, lng: -63.61 },
-    { country: "South Africa", countryCode: "ZA", state: "Gauteng", lat: -30.55, lng: 22.93 },
-    { country: "Nigeria", countryCode: "NG", state: "Lagos", lat: 9.08, lng: 8.67 },
-    { country: "Egypt", countryCode: "EG", state: "Cairo", lat: 26.82, lng: 30.80 },
+    { country: "Colombia", countryCode: "CO", state: "Bogota", lat: 4.57, lng: -74.29 },
+    { country: "Chile", countryCode: "CL", state: "Santiago", lat: -35.67, lng: -71.54 },
+    { country: "Peru", countryCode: "PE", state: "Lima", lat: -9.19, lng: -75.01 },
+    { country: "Venezuela", countryCode: "VE", state: "Caracas", lat: 6.42, lng: -66.58 },
+    { country: "Cuba", countryCode: "CU", state: "Havana", lat: 21.52, lng: -77.78 },
+    { country: "Jamaica", countryCode: "JM", state: "Kingston", lat: 18.10, lng: -77.29 },
+
+    // Middle East
+    { country: "Turkey", countryCode: "TR", state: "Istanbul", lat: 38.96, lng: 35.24 },
+    { country: "Saudi Arabia", countryCode: "SA", state: "Riyadh", lat: 23.88, lng: 45.07 },
+    { country: "United Arab Emirates", countryCode: "AE", state: "Dubai", lat: 23.42, lng: 53.84 },
+    { country: "Israel", countryCode: "IL", state: "Tel Aviv", lat: 31.04, lng: 34.85 },
+    { country: "Lebanon", countryCode: "LB", state: "Beirut", lat: 33.85, lng: 35.86 },
+    { country: "Iran", countryCode: "IR", state: "Tehran", lat: 32.42, lng: 53.68 },
+
+    // Asia & Pacific
     { country: "Japan", countryCode: "JP", state: "Kanto", lat: 36.20, lng: 138.25 },
     { country: "India", countryCode: "IN", state: "Delhi", lat: 20.59, lng: 78.96 },
     { country: "China", countryCode: "CN", state: "Beijing", lat: 35.86, lng: 104.19 },
     { country: "South Korea", countryCode: "KR", state: "Seoul", lat: 35.90, lng: 127.76 },
     { country: "Australia", countryCode: "AU", state: "New South Wales", lat: -25.27, lng: 133.77 },
-    { country: "Canada", countryCode: "CA", state: "Ontario", lat: 56.13, lng: -106.34 },
-    { country: "Sweden", countryCode: "SE", state: "Stockholm", lat: 60.12, lng: 18.64 },
-    { country: "Netherlands", countryCode: "NL", state: "North Holland", lat: 52.13, lng: 5.29 }
+    { country: "New Zealand", countryCode: "NZ", state: "Auckland", lat: -40.90, lng: 174.88 },
+    { country: "Indonesia", countryCode: "ID", state: "Jakarta", lat: -0.78, lng: 113.92 },
+    { country: "Philippines", countryCode: "PH", state: "Manila", lat: 12.87, lng: 121.77 },
+    { country: "Thailand", countryCode: "TH", state: "Bangkok", lat: 15.87, lng: 100.99 },
+    { country: "Vietnam", countryCode: "VN", state: "Hanoi", lat: 14.05, lng: 108.27 },
+    { country: "Malaysia", countryCode: "MY", state: "Kuala Lumpur", lat: 4.21, lng: 101.97 },
+    { country: "Singapore", countryCode: "SG", state: "Singapore", lat: 1.35, lng: 103.81 },
+    { country: "Pakistan", countryCode: "PK", state: "Islamabad", lat: 30.37, lng: 69.34 }
   ];
 
   let closest = targets[0];
@@ -1081,7 +1138,22 @@ Each element in the array must specify:
   }
 });
 
-// Radio Browser API Proxy & Aggregator
+// Calculate Haversine great-circle distance between two GPS coordinates in kilometers
+function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth mean radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+// Radio Browser API Proxy & 250km Geographic Scanner
 app.get("/api/stations", async (req, res) => {
   const {
     search,
@@ -1089,25 +1161,44 @@ app.get("/api/stations", async (req, res) => {
     countrycode,
     tag,
     language,
+    lat,
+    lng,
+    radiusKm = "250",
     order = "clickcount",
-    limit = "30",
+    limit = "80",
     random = "false"
   } = req.query;
 
-  const parsedLimit = Math.min(Math.max(parseInt(limit as string, 10) || 30, 1), 100);
+  const parsedLimit = Math.min(Math.max(parseInt(limit as string, 10) || 80, 1), 150);
+  const scanRadius = Math.max(parseInt(radiusKm as string, 10) || 250, 10);
+  const userLat = lat !== undefined && lat !== "" ? parseFloat(lat as string) : null;
+  const userLng = lng !== undefined && lng !== "" ? parseFloat(lng as string) : null;
+
   const mirrors = [
     "https://de1.api.radio-browser.info",
     "https://nl1.api.radio-browser.info",
     "https://at1.api.radio-browser.info"
   ];
 
+  // Resolve country code if lat/lng are provided but countrycode is missing
+  let resolvedCountryCode = (countrycode as string || "").trim().toLowerCase();
+  let resolvedCountryName = (country as string || "").trim();
+
+  if (!resolvedCountryCode && !resolvedCountryName && userLat !== null && userLng !== null) {
+    const closest = getClosestCountryByCoords(userLat, userLng);
+    if (closest && closest.countryCode) {
+      resolvedCountryCode = closest.countryCode.toLowerCase();
+      resolvedCountryName = closest.country;
+    }
+  }
+
   let targetPath = "";
   if (random === "true") {
     targetPath = `/json/stations/topclick/${parsedLimit}`;
-  } else if (countrycode) {
-    targetPath = `/json/stations/bycountrycodeexact/${encodeURIComponent(String(countrycode).toLowerCase())}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
-  } else if (country) {
-    targetPath = `/json/stations/bycountry/${encodeURIComponent(String(country))}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
+  } else if (resolvedCountryCode) {
+    targetPath = `/json/stations/bycountrycodeexact/${encodeURIComponent(resolvedCountryCode)}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
+  } else if (resolvedCountryName) {
+    targetPath = `/json/stations/bycountry/${encodeURIComponent(resolvedCountryName)}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
   } else if (tag) {
     targetPath = `/json/stations/bytag/${encodeURIComponent(String(tag))}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
   } else if (language) {
@@ -1121,9 +1212,9 @@ app.get("/api/stations", async (req, res) => {
   for (const mirror of mirrors) {
     try {
       const url = `${mirror}${targetPath}`;
-      console.log(`[Radio Browser Proxy] Fetching: ${url}`);
+      console.log(`[Radio Browser Proxy] Scanning: ${url}`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 6500);
 
       const response = await fetch(url, {
         headers: {
@@ -1136,12 +1227,55 @@ app.get("/api/stations", async (req, res) => {
       if (response.ok) {
         const stations: any[] = await response.json();
         // Sanitize and filter out unplayable streams
-        const valid = stations.filter((s) => {
+        let valid = stations.filter((s) => {
           const streamUrl = s.url_resolved || s.url;
           return streamUrl && typeof streamUrl === "string" && streamUrl.startsWith("http");
         });
 
-        // Ensure crossOrigin CORS headers
+        // If coordinates provided, compute precise distance for every station with GPS data
+        if (userLat !== null && userLng !== null) {
+          valid = valid.map((s) => {
+            const sLat = s.geo_lat !== null && s.geo_lat !== undefined ? parseFloat(s.geo_lat) : null;
+            const sLng = s.geo_long !== null && s.geo_long !== undefined ? parseFloat(s.geo_long) : null;
+
+            if (sLat !== null && sLng !== null && !isNaN(sLat) && !isNaN(sLng)) {
+              const distanceKm = calculateHaversineKm(userLat, userLng, sLat, sLng);
+              return {
+                ...s,
+                distanceKm,
+                withinRadius: distanceKm <= scanRadius
+              };
+            }
+
+            // For stations in the matching territory without explicit GPS, consider regional
+            return {
+              ...s,
+              withinRadius: true
+            };
+          });
+
+          // Sort prioritizing stations confirmed within scan radius by proximity,
+          // followed by regional stations sorted by popularity
+          valid.sort((a, b) => {
+            const aHasDist = a.distanceKm !== undefined && a.distanceKm !== null;
+            const bHasDist = b.distanceKm !== undefined && b.distanceKm !== null;
+
+            if (aHasDist && bHasDist) {
+              const aIn = a.distanceKm <= scanRadius;
+              const bIn = b.distanceKm <= scanRadius;
+              if (aIn && !bIn) return -1;
+              if (!aIn && bIn) return 1;
+              return a.distanceKm - b.distanceKm;
+            }
+
+            if (aHasDist && a.distanceKm <= scanRadius) return -1;
+            if (bHasDist && b.distanceKm <= scanRadius) return 1;
+
+            return (b.clickcount || b.votes || 0) - (a.clickcount || a.votes || 0);
+          });
+        }
+
+        // Ensure crossOrigin CORS headers and dynamic caching
         res.setHeader("Cache-Control", "public, max-age=180");
         return res.json(valid);
       }

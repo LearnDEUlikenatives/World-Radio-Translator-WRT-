@@ -895,7 +895,7 @@ export default function App() {
           </div>
 
           {/* Right Toolbar Actions: Studio, Upfront Register/Account, Upgrade Pro, Day/Night */}
-          <div className="flex items-center justify-end gap-1.5 sm:gap-2 w-full md:w-auto overflow-x-auto custom-scrollbar pb-0.5 sm:pb-0">
+          <div className="flex items-center justify-start md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto touch-scroll-x py-1 px-0.5 sm:px-0 scroll-smooth">
             {/* Equalizer / Studio Drawer Toggle */}
             <button
               onClick={() => setShowAudioStudio(!showAudioStudio)}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { RadioStation, LocationGeoProfile } from "../types";
 import { Radio, Play, Volume2, ShieldAlert, BadgeCheck, Search, Sparkles, Heart, Filter, X } from "lucide-react";
+import { getCuratedStationsForCountry } from "../data/regionalBroadcasters";
 
 interface StationListProps {
   currentCountryProfile: LocationGeoProfile | null;
@@ -164,6 +165,9 @@ export default function StationList({
     setError(null);
     setSearchQuery("");
 
+    const primaryCode = (currentCountryProfile.countryCode || "").toUpperCase().trim();
+    const curatedRegional = getCuratedStationsForCountry(primaryCode);
+
     const rawCodes = currentCountryProfile?.countryCodes && currentCountryProfile.countryCodes.length > 0
       ? currentCountryProfile.countryCodes
       : [currentCountryProfile?.countryCode];
@@ -182,9 +186,21 @@ export default function StationList({
         .catch(() => []);
     });
 
-    Promise.all(fetchPromises)
+    // Also fetch by country name in parallel to guarantee matches
+    const countryNamePromise = currentCountryProfile.country
+      ? fetch(`/api/stations?country=${encodeURIComponent(currentCountryProfile.country)}&limit=30`)
+          .then(res => res.ok ? res.json() : [])
+          .catch(() => [])
+      : Promise.resolve([]);
+
+    Promise.all([...fetchPromises, countryNamePromise])
       .then((resultsArray: RadioStation[][]) => {
         let combinedStations: RadioStation[] = resultsArray.flat();
+
+        // Include curated local stations at high priority if matched
+        if (curatedRegional.length > 0) {
+          combinedStations = [...curatedRegional, ...combinedStations];
+        }
 
         const seenUuids = new Set<string>();
         combinedStations = combinedStations.filter((s) => {
@@ -198,27 +214,16 @@ export default function StationList({
         combinedStations.sort((a, b) => (b.clickcount || b.votes || 0) - (a.clickcount || a.votes || 0));
 
         if (combinedStations.length === 0) {
-          fetch(`/api/stations?country=${encodeURIComponent(currentCountryProfile.country)}&limit=30`)
-            .then((fallRes) => fallRes.json())
-            .then((fallData: RadioStation[]) => {
-              const resFilter = fallData.filter((s) => {
-                const mainUrl = s.url_resolved || s.url;
-                return mainUrl && mainUrl.startsWith("http");
-              });
-              if (resFilter.length === 0) {
-                setStations(DEFAULT_GLOBAL_STATIONS.map(s => ({
-                  ...s,
-                  state: "Regional Stream"
-                })));
-              } else {
-                setStations(resFilter);
-              }
-              setLoading(false);
-            })
-            .catch(() => {
-              setStations(DEFAULT_GLOBAL_STATIONS);
-              setLoading(false);
-            });
+          if (curatedRegional.length > 0) {
+            setStations(curatedRegional);
+          } else {
+            // Give customized regional labels so user sees country context
+            setStations(DEFAULT_GLOBAL_STATIONS.map(s => ({
+              ...s,
+              state: `${currentCountryProfile.country} & Global Relays`
+            })));
+          }
+          setLoading(false);
         } else {
           setStations(combinedStations.slice(0, 45));
           setLoading(false);
@@ -226,7 +231,11 @@ export default function StationList({
       })
       .catch((err) => {
         console.warn("Radio lookup error, loading stable fallback", err);
-        setStations(DEFAULT_GLOBAL_STATIONS);
+        if (curatedRegional.length > 0) {
+          setStations(curatedRegional);
+        } else {
+          setStations(DEFAULT_GLOBAL_STATIONS);
+        }
         setLoading(false);
       });
   }, [currentCountryProfile]);

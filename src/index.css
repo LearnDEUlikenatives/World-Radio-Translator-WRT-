@@ -88,3 +88,16 @@ body {
   color: #ffffff !important; /* crisp high-contrast white text */
 }
 
+/* Horizontal slide bar utilities for touch / phone */
+.touch-scroll-x {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-width: none;
+}
+
+.touch-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+

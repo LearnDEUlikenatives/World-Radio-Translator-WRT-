@@ -484,6 +484,92 @@ export const REGIONAL_STATION_DATABASE: Record<string, RadioStation[]> = {
       codec: "MP3",
       bitrate: 128
     }
+  ],
+  US: [
+    {
+      stationuuid: "us-wnyc-fm",
+      name: "WNYC 93.9 FM - New York Public Radio",
+      url: "https://fm939.wnyc.org/wnycfm",
+      url_resolved: "https://fm939.wnyc.org/wnycfm",
+      homepage: "https://www.wnyc.org",
+      tags: "news,npr,public radio,new york,talk",
+      country: "United States",
+      countrycode: "US",
+      state: "New York",
+      language: "english",
+      votes: 32000,
+      clickcount: 75000,
+      codec: "MP3",
+      bitrate: 128
+    },
+    {
+      stationuuid: "us-kexp",
+      name: "KEXP 90.3 FM - Seattle Music Pioneer",
+      url: "https://kexp.streamguys1.com/kexp128.mp3",
+      url_resolved: "https://kexp.streamguys1.com/kexp128.mp3",
+      homepage: "https://www.kexp.org",
+      tags: "indie,alternative,rock,seattle,eclectic",
+      country: "United States",
+      countrycode: "US",
+      state: "Washington",
+      language: "english",
+      votes: 41000,
+      clickcount: 98000,
+      codec: "MP3",
+      bitrate: 128
+    },
+    {
+      stationuuid: "us-somafm-groovesalad",
+      name: "SomaFM: Groove Salad",
+      url: "https://ice1.somafm.com/groovesalad-128-mp3",
+      url_resolved: "https://ice1.somafm.com/groovesalad-128-mp3",
+      homepage: "https://somafm.com",
+      tags: "ambient,downtempo,chillout,electronic",
+      country: "United States",
+      countrycode: "US",
+      state: "California",
+      language: "english",
+      votes: 52000,
+      clickcount: 140000,
+      codec: "MP3",
+      bitrate: 128
+    }
+  ],
+  CA: [
+    {
+      stationuuid: "ca-cbc-radio-one",
+      name: "CBC Radio One Toronto",
+      url: "https://cbc_r1_tor.akacast.akamaistream.net/7/632/451661/v1/rc.akamaistream.net/cbc_r1_tor",
+      url_resolved: "https://cbc_r1_tor.akacast.akamaistream.net/7/632/451661/v1/rc.akamaistream.net/cbc_r1_tor",
+      homepage: "https://www.cbc.ca/radio",
+      tags: "public,news,talk,canada,toronto",
+      country: "Canada",
+      countrycode: "CA",
+      state: "Ontario",
+      language: "english",
+      votes: 21000,
+      clickcount: 42000,
+      codec: "MP3",
+      bitrate: 128
+    }
+  ],
+  MX: [
+    {
+      stationuuid: "mx-reactor-105",
+      name: "Reactor 105.7 FM",
+      url: "https://s2.mexside.net/8022/stream",
+      url_resolved: "https://s2.mexside.net/8022/stream",
+      homepage: "https://imer.mx/reactor",
+      tags: "rock,alternative,indie,mexico city",
+      country: "Mexico",
+      countrycode: "MX",
+      state: "Ciudad de México",
+      language: "spanish",
+      votes: 16500,
+      clickcount: 34000,
+      codec: "MP3",
+      bitrate: 128
+    }
   ]
 };
 

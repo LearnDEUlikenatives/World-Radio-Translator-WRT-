@@ -690,17 +690,43 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ country: stri
  * Builds a 100% genuine, factual fallback profile if the Gemini culture details endpoint fails.
  */
 function buildRealFallbackProfile(country: string, countryCode: string, state: string) {
-  const lookup = realCountryData[countryCode] || {
+  const code = (countryCode || "").toUpperCase();
+  const lookup = realCountryData[code] || {
     language: "Local Language",
     capital: "Regional Capitol",
     greeting: "Hello",
     genres: ["Traditional Folk", "Indie Rock", "Contemporary Pop"]
   };
 
+  const regionalNeighbors: Record<string, string[]> = {
+    ZA: ["ZA", "NA", "BW", "ZW", "MZ"],
+    EG: ["EG", "SA", "JO", "AE"],
+    NG: ["NG", "GH", "CM", "SN"],
+    KE: ["KE", "TZ", "UG", "ET"],
+    JP: ["JP", "KR", "TW"],
+    KR: ["KR", "JP"],
+    IN: ["IN", "LK", "NP", "BD"],
+    CN: ["CN", "HK", "TW"],
+    AU: ["AU", "NZ"],
+    NZ: ["NZ", "AU"],
+    BR: ["BR", "AR", "UY", "PY"],
+    AR: ["AR", "CL", "UY", "BR"],
+    MX: ["MX", "CO", "GT"],
+    US: ["US", "CA", "MX"],
+    CA: ["CA", "US"],
+    GB: ["GB", "IE"],
+    FR: ["FR", "BE", "CH", "DE", "ES", "IT"],
+    DE: ["DE", "AT", "CH", "NL", "PL"],
+    IT: ["IT", "CH", "AT", "FR", "GR"],
+    ES: ["ES", "PT", "FR", "AD", "MA"]
+  };
+
+  const nearbyCodes = regionalNeighbors[code] || [code];
+
   return {
     country: country,
-    countryCode: countryCode,
-    countryCodes: [countryCode, "US", "GB", "FR", "DE"].slice(0, 4),
+    countryCode: code,
+    countryCodes: nearbyCodes,
     language: lookup.language,
     capital: lookup.capital,
     description: `A genuine broadcast region in ${state ? state + ', ' : ''}${country}. This channel showcases local cultural news, authentic linguistic features, and beautiful melodies characteristic of ${country}'s musical history.`,

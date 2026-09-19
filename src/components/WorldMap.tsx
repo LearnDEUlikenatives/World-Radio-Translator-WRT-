@@ -38,6 +38,8 @@ export default function WorldMap({
   const [isPanning, setIsPanning] = useState(false);
   const startPanRef = useRef({ x: 0, y: 0 });
   const didDragRef = useRef(false);
+  const pointerDownPosRef = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
+  const lastProcessedTimeRef = useRef<number>(0);
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartZoomRef = useRef(1);
 
@@ -137,24 +139,23 @@ export default function WorldMap({
     onMapClick({ lat: clampedLat, lng: clampedLng });
   };
 
-  // Click & Touch Handlers with Drag Detection
+  // Click & Touch Handlers with Drag Detection & Mobile Tap Recognition
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsPanning(true);
     didDragRef.current = false;
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
     startPanRef.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isPanning) return;
-    const deltaX = e.clientX - startPanRef.current.x - panOffset.x;
-    const deltaY = e.clientY - startPanRef.current.y - panOffset.y;
-    
-    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
-      didDragRef.current = true;
-    }
+    const deltaX = e.clientX - pointerDownPosRef.current.x;
+    const deltaY = e.clientY - pointerDownPosRef.current.y;
+    const dist = Math.hypot(deltaX, deltaY);
 
-    if (zoomLevel > 1) {
-      // Pan limits based on current zoom
+    // Only count as intentional pan if zoomed in AND finger moved more than 16px (mobile touch-slop)
+    if (zoomLevel > 1 && dist > 16) {
+      didDragRef.current = true;
       const maxPanX = 250 * (zoomLevel - 1);
       const maxPanY = 150 * (zoomLevel - 1);
       const newX = Math.max(-maxPanX, Math.min(maxPanX, e.clientX - startPanRef.current.x));
@@ -164,10 +165,28 @@ export default function WorldMap({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (!didDragRef.current) {
+    setIsPanning(false);
+    const deltaX = e.clientX - pointerDownPosRef.current.x;
+    const deltaY = e.clientY - pointerDownPosRef.current.y;
+    const dist = Math.hypot(deltaX, deltaY);
+    const duration = Date.now() - pointerDownPosRef.current.time;
+
+    // It's a tap if zoomLevel is 1, or if finger didn't exceed drag threshold, or short tap
+    if (!didDragRef.current || zoomLevel === 1 || (dist < 18 && duration < 600)) {
+      lastProcessedTimeRef.current = Date.now();
       processCoordFromClientPoint(e.clientX, e.clientY);
     }
+  };
+
+  const handlePointerCancel = () => {
     setIsPanning(false);
+  };
+
+  // Fallback direct DOM click handler for mobile WebView where pointerup might be synthesized
+  const handleClick = (e: React.MouseEvent) => {
+    if (Date.now() - lastProcessedTimeRef.current < 450) return; // Ignore if already processed by pointerup
+    lastProcessedTimeRef.current = Date.now();
+    processCoordFromClientPoint(e.clientX, e.clientY);
   };
 
   // In-box wheel zoom handler
@@ -269,11 +288,39 @@ export default function WorldMap({
 
       {/* Map Canvas */}
       <div 
-        className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center cursor-crosshair"
+        className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center cursor-crosshair touch-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onClick={handleClick}
       >
+        {/* Quick Region Jump Chips for Mobile/Touch Ease */}
+        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 overflow-x-auto max-w-[calc(100%-110px)] p-1 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm scrollbar-none">
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 pl-1 whitespace-nowrap hidden sm:inline">Scan:</span>
+          {[
+            { label: "🇿🇦 South Africa", lat: -30.55, lng: 22.93 },
+            { label: "🇪🇬 Egypt", lat: 26.82, lng: 30.80 },
+            { label: "🇯🇵 Japan", lat: 36.20, lng: 138.25 },
+            { label: "🇬🇧 UK", lat: 55.37, lng: -3.43 },
+            { label: "🇺🇸 USA", lat: 37.09, lng: -95.71 },
+            { label: "🇧🇷 Brazil", lat: -14.23, lng: -51.92 },
+            { label: "🇮🇳 India", lat: 20.59, lng: 78.96 },
+            { label: "🇦🇺 Australia", lat: -25.27, lng: 133.77 },
+          ].map((preset) => (
+            <button
+              key={preset.label}
+              onClick={(e) => {
+                e.stopPropagation();
+                lastProcessedTimeRef.current = Date.now();
+                onMapClick({ lat: preset.lat, lng: preset.lng });
+              }}
+              className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 hover:text-emerald-700 dark:hover:text-emerald-300 text-slate-700 dark:text-slate-200 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
         {/* Floating Scan Radius HUD / Badge */}
         <div className="absolute bottom-2.5 left-2.5 z-20 flex flex-wrap items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-md text-[11px]">
           <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">

@@ -153,92 +153,95 @@ export default function StationList({
     setSearchQuery("");
 
     const scanRadius = radiusKm || 250;
-    const coordsQuery = selectedCoords
-      ? `&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`
-      : "";
-
     const primaryCode = (currentCountryProfile?.countryCode || "").toUpperCase().trim();
+    const primaryCountry = (currentCountryProfile?.country || "").trim();
     const curatedRegional = getCuratedStationsForCountry(primaryCode);
 
-    const rawCodes = currentCountryProfile?.countryCodes && currentCountryProfile.countryCodes.length > 0
-      ? currentCountryProfile.countryCodes
-      : currentCountryProfile?.countryCode ? [currentCountryProfile.countryCode] : [];
+    // Single unified API scan with coordinates, country, and radius
+    const primaryUrl = selectedCoords
+      ? `/api/stations?limit=100&countrycode=${encodeURIComponent(primaryCode.toLowerCase())}&country=${encodeURIComponent(primaryCountry)}&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`
+      : primaryCode
+      ? `/api/stations?countrycode=${encodeURIComponent(primaryCode.toLowerCase())}&country=${encodeURIComponent(primaryCountry)}&limit=100`
+      : `/api/stations?limit=100`;
 
-    const codesToQuery = rawCodes.filter(
-      (code): code is string => typeof code === "string" && code.trim().length > 0
-    );
+    let isSubscribed = true;
 
-    const fetchPromises: Promise<RadioStation[]>[] = [];
-
-    // If country code(s) exist, query station proxy with coordinates and limit 100
-    if (codesToQuery.length > 0) {
-      codesToQuery.forEach((codeString) => {
-        const code = codeString.toLowerCase().trim();
-        fetchPromises.push(
-          fetch(`/api/stations?countrycode=${code}&limit=100${coordsQuery}`)
-            .then((res) => (res.ok ? res.json() : []))
-            .catch(() => [])
-        );
-      });
-    }
-
-    // Also fetch by country name in parallel
-    if (currentCountryProfile?.country) {
-      fetchPromises.push(
-        fetch(`/api/stations?country=${encodeURIComponent(currentCountryProfile.country)}&limit=100${coordsQuery}`)
-          .then((res) => (res.ok ? res.json() : []))
-          .catch(() => [])
-      );
-    }
-
-    // Always execute direct coordinate geo-radius scan whenever coordinates are selected
-    if (selectedCoords) {
-      fetchPromises.push(
-        fetch(`/api/stations?limit=100&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`)
-          .then((res) => (res.ok ? res.json() : []))
-          .catch(() => [])
-      );
-    }
-
-    // Fallback if neither profile nor coordinates exist
-    if (fetchPromises.length === 0) {
-      setStations(DEFAULT_GLOBAL_STATIONS);
-      setLoading(false);
-      return;
-    }
-
-    Promise.all(fetchPromises)
-      .then((resultsArray: RadioStation[][]) => {
-        let combinedStations: RadioStation[] = resultsArray.flat();
-
-        const seenUuids = new Set<string>();
-        combinedStations = combinedStations.filter((s) => {
-          const mainUrl = s.url_resolved || s.url;
-          if (!mainUrl || !mainUrl.startsWith("http")) return false;
-          if (seenUuids.has(s.stationuuid)) return false;
-          seenUuids.add(s.stationuuid);
-          return true;
+    fetch(primaryUrl)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<RadioStation[]>;
+      })
+      .then(async (stations) => {
+        if (!isSubscribed) return;
+        let validStations = (stations || []).filter((s) => {
+          const u = s.url_resolved || s.url;
+          return u && u.startsWith("http");
         });
 
-        if (combinedStations.length === 0) {
-          if (curatedRegional.length > 0) {
-            setStations(curatedRegional);
-          } else {
-            setStations(
-              DEFAULT_GLOBAL_STATIONS.map((s) => ({
-                ...s,
-                state: `${currentCountryProfile?.country || "Scanned Region"} & Relays`
-              }))
+        // If local API proxy returned empty, try direct public Radio Browser mirror
+        if (validStations.length === 0 && primaryCode) {
+          try {
+            const mirrorRes = await fetch(
+              `https://de1.api.radio-browser.info/json/stations/bycountrycodeexact/${primaryCode.toLowerCase()}?limit=100&hidebroken=true`
             );
+            if (mirrorRes.ok) {
+              const mirrorData = await mirrorRes.json();
+              if (Array.isArray(mirrorData) && mirrorData.length > 0) {
+                validStations = mirrorData;
+              }
+            }
+          } catch (mirrorErr) {
+            console.warn("Direct mirror fallback failed:", mirrorErr);
           }
+        }
+
+        // If still empty, use authentic curated stations for this country
+        if (validStations.length === 0 && curatedRegional.length > 0) {
+          validStations = curatedRegional;
+        }
+
+        if (validStations.length === 0) {
+          // If no specific stations found for remote ocean / isolated point, use global default
+          setStations(
+            DEFAULT_GLOBAL_STATIONS.map((s) => ({
+              ...s,
+              state: `${primaryCountry || "Scanned Area"} & Oceanic Relays`
+            }))
+          );
         } else {
-          // Provide up to 100 stations for a vast and diverse scan
-          setStations(combinedStations.slice(0, 100));
+          // Deduplicate
+          const seen = new Set<string>();
+          const deduped = validStations.filter((s) => {
+            if (!s.stationuuid || seen.has(s.stationuuid)) return false;
+            seen.add(s.stationuuid);
+            return true;
+          });
+          setStations(deduped.slice(0, 100));
         }
         setLoading(false);
       })
-      .catch((err) => {
-        console.warn("Radio lookup error, loading fallback:", err);
+      .catch(async (err) => {
+        if (!isSubscribed) return;
+        console.warn("Station scan error, attempting client-side fallback:", err);
+        // Fallback directly to mirror or curated regional stations
+        if (primaryCode) {
+          try {
+            const mirrorRes = await fetch(
+              `https://de1.api.radio-browser.info/json/stations/bycountrycodeexact/${primaryCode.toLowerCase()}?limit=100&hidebroken=true`
+            );
+            if (mirrorRes.ok) {
+              const mirrorData = await mirrorRes.json();
+              if (Array.isArray(mirrorData) && mirrorData.length > 0) {
+                setStations(mirrorData.slice(0, 100));
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (mirrorErr) {
+            // Ignore mirror error
+          }
+        }
+
         if (curatedRegional.length > 0) {
           setStations(curatedRegional);
         } else {
@@ -246,7 +249,11 @@ export default function StationList({
         }
         setLoading(false);
       });
-  }, [currentCountryProfile, selectedCoords?.lat, selectedCoords?.lng, radiusKm]);
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [currentCountryProfile?.countryCode, currentCountryProfile?.country, selectedCoords?.lat, selectedCoords?.lng, radiusKm]);
 
   // Handle "Surprise Me"
   const handleTriggerSurprise = () => {

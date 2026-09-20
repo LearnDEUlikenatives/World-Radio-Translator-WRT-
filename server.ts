@@ -1206,15 +1206,24 @@ app.get("/api/stations", async (req, res) => {
     "https://at1.api.radio-browser.info"
   ];
 
-  // Resolve country code dynamically from lat/lng whenever coordinates are provided (taking precedence over client countrycode)
+  // Resolve country code dynamically from lat/lng using Nominatim reverseGeocode (taking precedence over client countrycode)
   let resolvedCountryCode = "";
   let resolvedCountryName = "";
 
   if (userLat !== null && userLng !== null) {
-    const closest = getClosestCountryByCoords(userLat, userLng);
-    if (closest && closest.countryCode) {
-      resolvedCountryCode = closest.countryCode.toLowerCase();
-      resolvedCountryName = closest.country;
+    try {
+      const geo = await reverseGeocode(userLat, userLng);
+      if (geo && geo.countryCode) {
+        resolvedCountryCode = geo.countryCode.toLowerCase();
+        resolvedCountryName = geo.country;
+      }
+    } catch (err) {
+      console.warn("Reverse geocode failed in /api/stations, falling back to math", err);
+      const closest = getClosestCountryByCoords(userLat, userLng);
+      if (closest && closest.countryCode) {
+        resolvedCountryCode = closest.countryCode.toLowerCase();
+        resolvedCountryName = closest.country;
+      }
     }
   } else {
     resolvedCountryCode = (countrycode as string || "").trim().toLowerCase();

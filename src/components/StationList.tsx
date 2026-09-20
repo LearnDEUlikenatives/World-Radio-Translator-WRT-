@@ -157,9 +157,9 @@ export default function StationList({
     const primaryCountry = (currentCountryProfile?.country || "").trim();
     const curatedRegional = getCuratedStationsForCountry(primaryCode);
 
-    // Single unified API scan with coordinates, country, and radius
+    // Single unified API scan with coordinates and radius (taking absolute precedence when user clicks map)
     const primaryUrl = selectedCoords
-      ? `/api/stations?limit=100&countrycode=${encodeURIComponent(primaryCode.toLowerCase())}&country=${encodeURIComponent(primaryCountry)}&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`
+      ? `/api/stations?limit=100&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`
       : primaryCode
       ? `/api/stations?countrycode=${encodeURIComponent(primaryCode.toLowerCase())}&country=${encodeURIComponent(primaryCountry)}&limit=100`
       : `/api/stations?limit=100`;

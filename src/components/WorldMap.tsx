@@ -255,7 +255,7 @@ export default function WorldMap({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="flex flex-col w-full aspect-[700/340] max-w-5xl max-h-[360px] md:max-h-[400px] lg:max-h-[450px] xl:max-h-[490px] mx-auto bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative rounded-2xl overflow-hidden shadow-inner border border-slate-200/50 dark:border-slate-800/50 select-none touch-none"
+      className="flex flex-col w-full aspect-[700/340] max-w-7xl max-h-[380px] md:max-h-[440px] lg:max-h-[500px] xl:max-h-[550px] mx-auto bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative rounded-2xl overflow-hidden shadow-inner border border-slate-200/50 dark:border-slate-800/50 select-none touch-none"
     >
       {/* Interactive In-Box Zoom Controls */}
       <div className="absolute top-2.5 right-2.5 z-20 flex flex-col gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-md">

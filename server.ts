@@ -1206,16 +1206,19 @@ app.get("/api/stations", async (req, res) => {
     "https://at1.api.radio-browser.info"
   ];
 
-  // Resolve country code if lat/lng are provided but countrycode is missing
-  let resolvedCountryCode = (countrycode as string || "").trim().toLowerCase();
-  let resolvedCountryName = (country as string || "").trim();
+  // Resolve country code dynamically from lat/lng whenever coordinates are provided (taking precedence over client countrycode)
+  let resolvedCountryCode = "";
+  let resolvedCountryName = "";
 
-  if (!resolvedCountryCode && !resolvedCountryName && userLat !== null && userLng !== null) {
+  if (userLat !== null && userLng !== null) {
     const closest = getClosestCountryByCoords(userLat, userLng);
     if (closest && closest.countryCode) {
       resolvedCountryCode = closest.countryCode.toLowerCase();
       resolvedCountryName = closest.country;
     }
+  } else {
+    resolvedCountryCode = (countrycode as string || "").trim().toLowerCase();
+    resolvedCountryName = (country as string || "").trim();
   }
 
   let targetPath = "";

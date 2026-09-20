@@ -888,7 +888,7 @@ export default function App() {
     }`}>
       
       {/* Top Application Navigation Header */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-2.5 sm:px-5 py-2 sm:py-2.5 transition-colors">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-2.5 sm:px-5 py-2.5 sm:py-3 pt-7 sm:pt-3.5 transition-colors">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4">
           
           {/* Left: Brand Logo & View Switcher (Explore & Library adjusted cleanly to the left for phone mode) */}

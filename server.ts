@@ -1249,28 +1249,51 @@ app.get("/api/stations", async (req, res) => {
 
   for (const mirror of mirrors) {
     try {
-      const url = `${mirror}${targetPath}`;
-      console.log(`[Radio Browser Proxy] Scanning: ${url}`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6500);
+      let targetPaths = [targetPath];
+      // If coordinates are provided, also query global topclick stations to ensure stations are found at EVERY corner of the world (oceans, remote areas, islands, etc.)
+      if (userLat !== null && userLng !== null && targetPath.indexOf("topclick") === -1) {
+        targetPaths.push(`/json/stations/topclick/250?hidebroken=true`);
+      }
 
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "WorldRadioTranslator/2.0.0 (surendazz15@gmail.com)"
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+      let allStations: any[] = [];
+      for (const p of targetPaths) {
+        const url = `${mirror}${p}`;
+        console.log(`[Radio Browser Proxy] Scanning: ${url}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6500);
 
-      if (response.ok) {
-        const stations: any[] = await response.json();
-        // Sanitize and filter out unplayable streams
-        let valid = stations.filter((s) => {
+        try {
+          const response = await fetch(url, {
+            headers: {
+              "User-Agent": "WorldRadioTranslator/2.0.0 (surendazz15@gmail.com)"
+            },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (response.ok) {
+            const data: any[] = await response.json();
+            if (Array.isArray(data)) {
+              allStations.push(...data);
+            }
+          }
+        } catch (subErr) {
+          clearTimeout(timeoutId);
+        }
+      }
+
+      if (allStations.length > 0) {
+        // Sanitize and filter out unplayable streams and deduplicate by stationuuid
+        const seenUuids = new Set<string>();
+        let valid = allStations.filter((s) => {
           const streamUrl = s.url_resolved || s.url;
-          return streamUrl && typeof streamUrl === "string" && streamUrl.startsWith("http");
+          if (!streamUrl || typeof streamUrl !== "string" || !streamUrl.startsWith("http")) return false;
+          const uuid = s.stationuuid || s.name;
+          if (seenUuids.has(uuid)) return false;
+          seenUuids.add(uuid);
+          return true;
         });
 
-        // If coordinates provided, compute precise distance for every station with GPS data
+        // If coordinates provided, compute precise distance for EVERY station worldwide with GPS data
         if (userLat !== null && userLng !== null) {
           valid = valid.map((s) => {
             const sLat = s.geo_lat !== null && s.geo_lat !== undefined ? parseFloat(s.geo_lat) : null;
@@ -1285,37 +1308,31 @@ app.get("/api/stations", async (req, res) => {
               };
             }
 
-            // For stations in the matching territory without explicit GPS, consider regional
+            // For stations without explicit GPS data, estimate or fallback
             return {
               ...s,
-              withinRadius: true
+              distanceKm: 99999,
+              withinRadius: false
             };
           });
 
-          // Sort prioritizing stations confirmed within scan radius by proximity,
-          // followed by regional stations sorted by popularity
+          // Sort prioritizing stations with valid GPS distance by proximity, followed by popular stations
           valid.sort((a, b) => {
-            const aHasDist = a.distanceKm !== undefined && a.distanceKm !== null;
-            const bHasDist = b.distanceKm !== undefined && b.distanceKm !== null;
+            const aHasDist = a.distanceKm !== undefined && a.distanceKm !== 99999;
+            const bHasDist = b.distanceKm !== undefined && b.distanceKm !== 99999;
 
             if (aHasDist && bHasDist) {
-              const aIn = a.distanceKm <= scanRadius;
-              const bIn = b.distanceKm <= scanRadius;
-              if (aIn && !bIn) return -1;
-              if (!aIn && bIn) return 1;
               return a.distanceKm - b.distanceKm;
             }
-
-            if (aHasDist && a.distanceKm <= scanRadius) return -1;
-            if (bHasDist && b.distanceKm <= scanRadius) return 1;
-
+            if (aHasDist) return -1;
+            if (bHasDist) return 1;
             return (b.clickcount || b.votes || 0) - (a.clickcount || a.votes || 0);
           });
         }
 
         // Ensure crossOrigin CORS headers and dynamic caching
         res.setHeader("Cache-Control", "public, max-age=180");
-        return res.json(valid);
+        return res.json(valid.slice(0, parsedLimit));
       }
     } catch (err: any) {
       console.warn(`[Radio Browser Proxy] Mirror ${mirror} failed:`, err?.message || err);

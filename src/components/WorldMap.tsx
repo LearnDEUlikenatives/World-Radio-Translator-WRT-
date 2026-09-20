@@ -418,12 +418,39 @@ export default function WorldMap({
                         cy="0"
                         rx={rx}
                         ry={ry}
-                        fill="rgba(16, 185, 129, 0.12)"
+                        fill={loading ? "rgba(16, 185, 129, 0.22)" : "rgba(16, 185, 129, 0.12)"}
                         stroke="#10b981"
-                        strokeWidth="0.8"
-                        strokeDasharray="2.5 1.5"
-                        className="animate-pulse"
+                        strokeWidth={loading ? "1.5" : "0.8"}
+                        strokeDasharray={loading ? "none" : "2.5 1.5"}
+                        className={loading ? "animate-pulse" : ""}
                       />
+
+                      {/* Active Sonar Ripples when scanning */}
+                      {loading && (
+                        <>
+                          <ellipse
+                            cx="0"
+                            cy="0"
+                            rx={rx * 0.3}
+                            ry={ry * 0.3}
+                            fill="none"
+                            stroke="rgba(52, 211, 153, 0.9)"
+                            strokeWidth="1.2"
+                            className="animate-sonar-ripple"
+                          />
+                          <ellipse
+                            cx="0"
+                            cy="0"
+                            rx={rx * 0.6}
+                            ry={ry * 0.6}
+                            fill="none"
+                            stroke="rgba(16, 185, 129, 0.7)"
+                            strokeWidth="1"
+                            className="animate-sonar-ripple"
+                            style={{ animationDelay: "0.6s" }}
+                          />
+                        </>
+                      )}
 
                       {/* Concentric sonar scan rings */}
                       <ellipse
@@ -448,26 +475,34 @@ export default function WorldMap({
                         strokeWidth="0.75"
                       />
 
-                      {/* Radar sweep arm line */}
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2={rx * 0.95}
-                        y2="0"
-                        stroke="rgba(52, 211, 153, 0.85)"
-                        strokeWidth="1.1"
-                        strokeLinecap="round"
-                      />
+                      {/* Rotating Radar Sweep Arm */}
+                      <g className={loading ? "animate-radar-sweep" : ""}>
+                        <line
+                          x1="0"
+                          y1="0"
+                          x2={rx * 0.95}
+                          y2="0"
+                          stroke={loading ? "rgba(52, 211, 153, 1)" : "rgba(52, 211, 153, 0.85)"}
+                          strokeWidth={loading ? "1.6" : "1.1"}
+                          strokeLinecap="round"
+                        />
+                        {loading && (
+                          <path
+                            d={`M 0 0 L ${rx * 0.85} 0 A ${rx * 0.85} ${ry * 0.85} 0 0 1 0 ${ry * 0.85} Z`}
+                            fill="rgba(52, 211, 153, 0.25)"
+                          />
+                        )}
+                      </g>
 
                       {/* Pinned position center beacon */}
-                      <circle cx="0" cy="0" r="12" fill="rgba(16, 185, 129, 0.3)" className="animate-ping" style={{ animationDuration: "2s" }} />
-                      <circle cx="0" cy="0" r="4.2" fill="#10b981" stroke="#ffffff" strokeWidth="1.2" className="shadow" />
+                      <circle cx="0" cy="0" r={loading ? "18" : "12"} fill="rgba(16, 185, 129, 0.4)" className="animate-ping" style={{ animationDuration: loading ? "1s" : "2s" }} />
+                      <circle cx="0" cy="0" r="5" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" className="shadow" />
 
                       {/* HUD overlay badge in SVG */}
                       <g transform={`translate(${rx + 2}, -2)`}>
-                        <rect x="-1" y="-5.5" width="48" height="11" rx="2.5" fill="#0f172a" fillOpacity="0.88" stroke="#10b981" strokeWidth="0.5" />
-                        <text x="23" y="2" textAnchor="middle" fill="#34d399" fontSize="5.5" fontWeight="bold" fontFamily="monospace">
-                          {effectiveRadius}km Scan
+                        <rect x="-1" y="-6" width="54" height="12" rx="3" fill="#0f172a" fillOpacity="0.92" stroke="#10b981" strokeWidth={loading ? "1" : "0.5"} />
+                        <text x="26" y="2" textAnchor="middle" fill={loading ? "#6ee7b7" : "#34d399"} fontSize="5.5" fontWeight="bold" fontFamily="monospace">
+                          {loading ? "SCANNING..." : `${effectiveRadius}km Scan`}
                         </text>
                       </g>
                     </g>

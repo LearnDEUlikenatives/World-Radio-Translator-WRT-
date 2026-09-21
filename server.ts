@@ -1206,11 +1206,16 @@ app.get("/api/stations", async (req, res) => {
     "https://at1.api.radio-browser.info"
   ];
 
-  // Resolve country code dynamically from lat/lng using Nominatim reverseGeocode (taking precedence over client countrycode)
+  // Resolve country code reliably using fast local coordinate distance matching first, then Nominatim
   let resolvedCountryCode = "";
   let resolvedCountryName = "";
 
   if (userLat !== null && userLng !== null) {
+    const closest = getClosestCountryByCoords(userLat, userLng);
+    if (closest && closest.countryCode) {
+      resolvedCountryCode = closest.countryCode.toLowerCase();
+      resolvedCountryName = closest.country;
+    }
     try {
       const geo = await reverseGeocode(userLat, userLng);
       if (geo && geo.countryCode) {
@@ -1218,59 +1223,65 @@ app.get("/api/stations", async (req, res) => {
         resolvedCountryName = geo.country;
       }
     } catch (err) {
-      console.warn("Reverse geocode failed in /api/stations, falling back to math", err);
-      const closest = getClosestCountryByCoords(userLat, userLng);
-      if (closest && closest.countryCode) {
-        resolvedCountryCode = closest.countryCode.toLowerCase();
-        resolvedCountryName = closest.country;
-      }
+      // already fallback to closest country
     }
   } else {
     resolvedCountryCode = (countrycode as string || "").trim().toLowerCase();
     resolvedCountryName = (country as string || "").trim();
   }
 
-  let targetPath = "";
+  // Fetch stations from country code exact AND topclick / search to guarantee rich results across the world
+  let targetPaths: string[] = [];
   if (random === "true") {
-    targetPath = `/json/stations/topclick/${parsedLimit}`;
+    targetPaths.push(`/json/stations/topclick/${parsedLimit}?hidebroken=true`);
   } else if (resolvedCountryCode) {
-    targetPath = `/json/stations/bycountrycodeexact/${encodeURIComponent(resolvedCountryCode)}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
+    targetPaths.push(`/json/stations/bycountrycodeexact/${encodeURIComponent(resolvedCountryCode)}?limit=100&order=${order}&reverse=true&hidebroken=true`);
+    targetPaths.push(`/json/stations/topclick/100?hidebroken=true`);
   } else if (resolvedCountryName) {
-    targetPath = `/json/stations/bycountry/${encodeURIComponent(resolvedCountryName)}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
+    targetPaths.push(`/json/stations/bycountry/${encodeURIComponent(resolvedCountryName)}?limit=100&order=${order}&reverse=true&hidebroken=true`);
+    targetPaths.push(`/json/stations/topclick/100?hidebroken=true`);
   } else if (tag) {
-    targetPath = `/json/stations/bytag/${encodeURIComponent(String(tag))}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
+    targetPaths.push(`/json/stations/bytag/${encodeURIComponent(String(tag))}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`);
   } else if (language) {
-    targetPath = `/json/stations/bylanguage/${encodeURIComponent(String(language))}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
+    targetPaths.push(`/json/stations/bylanguage/${encodeURIComponent(String(language))}?limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`);
   } else if (search) {
-    targetPath = `/json/stations/search?name=${encodeURIComponent(String(search))}&limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`;
+    targetPaths.push(`/json/stations/search?name=${encodeURIComponent(String(search))}&limit=${parsedLimit}&order=${order}&reverse=true&hidebroken=true`);
   } else {
-    targetPath = `/json/stations/topclick/${parsedLimit}?hidebroken=true`;
+    targetPaths.push(`/json/stations/topclick/${parsedLimit}?hidebroken=true`);
   }
 
   for (const mirror of mirrors) {
     try {
-      const url = `${mirror}${targetPath}`;
-      console.log(`[Radio Browser Proxy] Scanning: ${url}`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6500);
+      let allFetchedStations: any[] = [];
+      for (const tp of targetPaths) {
+        const url = `${mirror}${tp}`;
+        console.log(`[Radio Browser Proxy] Scanning: ${url}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6500);
 
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "WorldRadioTranslator/2.0.0 (surendazz15@gmail.com)"
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const stations: any[] = await response.json();
-        if (!Array.isArray(stations) || stations.length === 0) {
-          continue; // try next mirror
+        try {
+          const response = await fetch(url, {
+            headers: {
+              "User-Agent": "WorldRadioTranslator/2.0.0 (surendazz15@gmail.com)"
+            },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (response.ok) {
+            const data: any[] = await response.json();
+            if (Array.isArray(data)) {
+              allFetchedStations.push(...data);
+            }
+          }
+        } catch (subErr) {
+          clearTimeout(timeoutId);
         }
+      }
 
+      if (allFetchedStations.length > 0) {
         // Sanitize and filter out unplayable streams and deduplicate by stationuuid
         const seenUuids = new Set<string>();
-        let valid = stations.filter((s) => {
+        let valid = allFetchedStations.filter((s) => {
           const streamUrl = s.url_resolved || s.url;
           if (!streamUrl || typeof streamUrl !== "string" || !streamUrl.startsWith("http")) return false;
           const uuid = s.stationuuid || s.name;
@@ -1279,7 +1290,7 @@ app.get("/api/stations", async (req, res) => {
           return true;
         });
 
-        // If coordinates provided, compute precise distance for stations with GPS data
+        // If coordinates provided, compute precise distance for every station with GPS data
         if (userLat !== null && userLng !== null) {
           valid = valid.map((s) => {
             const sLat = s.geo_lat !== null && s.geo_lat !== undefined ? parseFloat(s.geo_lat) : null;
@@ -1297,11 +1308,11 @@ app.get("/api/stations", async (req, res) => {
             return {
               ...s,
               distanceKm: 99999,
-              withinRadius: true
+              withinRadius: false
             };
           });
 
-          // Sort strictly by proximity / distance if available, then by clickcount
+          // Sort strictly by proximity to the pin (closest stations first)
           valid.sort((a, b) => {
             const aDist = a.distanceKm !== undefined ? a.distanceKm : 99999;
             const bDist = b.distanceKm !== undefined ? b.distanceKm : 99999;

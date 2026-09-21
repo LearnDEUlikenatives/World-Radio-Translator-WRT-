@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, UserPlus, LogIn, Sparkles, CheckCircle2, Shield, Heart, FileText, Crown, RefreshCw, Mail, ArrowRight } from "lucide-react";
 import { RadioStation, SavedTranscriptItem, SubscriptionState } from "../types";
+import { apiFetch } from "../lib/api";
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -47,7 +48,7 @@ export default function RegisterModal({
     setIsLoading(true);
     try {
       if (mode === "register") {
-        const res = await fetch("/api/auth/register", {
+        const res = await apiFetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -71,7 +72,7 @@ export default function RegisterModal({
         }
       } else {
         // Sign in / sync existing account
-        const res = await fetch("/api/auth/sync", {
+        const res = await apiFetch("/api/auth/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

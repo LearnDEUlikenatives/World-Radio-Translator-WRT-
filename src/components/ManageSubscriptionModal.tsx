@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SubscriptionState } from "../types";
 import { X, Crown, ShieldCheck, RefreshCw, AlertCircle, CheckCircle2, Mail } from "lucide-react";
+import { apiFetch } from "../lib/api";
 
 interface ManageSubscriptionModalProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export default function ManageSubscriptionModal({
       // 1. Try restoring via token first
       let restored = false;
       if (savedToken) {
-        const res = await fetch("/api/subscription/verify", {
+        const res = await apiFetch("/api/subscription/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token: savedToken })
@@ -52,7 +53,7 @@ export default function ManageSubscriptionModal({
 
       // 2. If token restore didn't find active sub, try lookup by registered email
       if (!restored && userEmail) {
-        const emailRes = await fetch("/api/subscription/lookup", {
+        const emailRes = await apiFetch("/api/subscription/lookup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: userEmail })

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { RadioStation, LocationGeoProfile } from "../types";
 import { Radio, Play, Volume2, ShieldAlert, BadgeCheck, Search, Sparkles, Heart, Filter, X, Navigation } from "lucide-react";
 import { getCuratedStationsForCountry } from "../data/regionalBroadcasters";
+import { apiFetch } from "../lib/api";
 
 interface StationListProps {
   currentCountryProfile: LocationGeoProfile | null;
@@ -166,7 +167,7 @@ export default function StationList({
 
     let isSubscribed = true;
 
-    fetch(primaryUrl)
+    apiFetch(primaryUrl)
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<RadioStation[]>;

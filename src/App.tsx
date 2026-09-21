@@ -46,6 +46,7 @@ import PaywallModal from "./components/PaywallModal";
 import ManageSubscriptionModal from "./components/ManageSubscriptionModal";
 import FavoritesLibrary from "./components/FavoritesLibrary";
 import RegisterModal from "./components/RegisterModal";
+import { apiFetch } from "./lib/api";
 import {
   RadioStation,
   LocationGeoProfile,
@@ -292,7 +293,7 @@ export default function App() {
     setSubscription(prev => ({ ...prev, email }));
     if (email) {
       // Check if user has an active subscription record
-      fetch("/api/subscription/lookup", {
+      apiFetch("/api/subscription/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
@@ -440,7 +441,7 @@ export default function App() {
 
   // Load AdMob configuration
   useEffect(() => {
-    fetch("/api/ads/config")
+    apiFetch("/api/ads/config")
       .then((res) => res.json())
       .then((cfg: AdConfig) => setAdConfig(cfg))
       .catch((err) => console.warn("Could not load AdMob config:", err));
@@ -450,7 +451,7 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem("wrt_subscription_token");
     if (token) {
-      fetch("/api/subscription/verify", {
+      apiFetch("/api/subscription/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token })
@@ -647,7 +648,7 @@ export default function App() {
 
     // Also sync to server
     try {
-      await fetch("/api/transcripts", {
+      await apiFetch("/api/transcripts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...newTranscript, email: userEmail })
@@ -690,7 +691,7 @@ export default function App() {
     setTimeout(() => setSaveToast(null), 3500);
 
     try {
-      await fetch("/api/transcripts", {
+      await apiFetch("/api/transcripts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...newTranscript, email: userEmail })
@@ -706,13 +707,13 @@ export default function App() {
     localStorage.setItem("wrt_saved_transcripts", JSON.stringify(updated));
 
     try {
-      await fetch(`/api/transcripts/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/transcripts/${id}`, { method: "DELETE" });
     } catch {}
   };
 
   // Sync initial saved transcripts from server
   useEffect(() => {
-    fetch("/api/transcripts")
+    apiFetch("/api/transcripts")
       .then(r => r.json())
       .then(data => {
         if (data.transcripts && Array.isArray(data.transcripts) && data.transcripts.length > 0) {
@@ -783,7 +784,7 @@ export default function App() {
     setRadiusKm(initialRadius);
 
     setProfileLoading(true);
-    fetch("/api/geocode", {
+    apiFetch("/api/geocode", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -810,7 +811,7 @@ export default function App() {
   const updateProfile = async (lat: number, lng: number, radius: number) => {
     setProfileLoading(true);
     try {
-      const response = await fetch("/api/geocode", {
+      const response = await apiFetch("/api/geocode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1442,7 +1443,7 @@ export default function App() {
                     return;
                   }
                   try {
-                    const res = await fetch(`/api/stations/search?name=${encodeURIComponent(name)}&limit=1`);
+                    const res = await apiFetch(`/api/stations/search?name=${encodeURIComponent(name)}&limit=1`);
                     const data = await res.json();
                     if (data && data.length > 0) {
                       handleSelectStation(data[0]);

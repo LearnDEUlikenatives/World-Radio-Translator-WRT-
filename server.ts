@@ -1249,42 +1249,28 @@ app.get("/api/stations", async (req, res) => {
 
   for (const mirror of mirrors) {
     try {
-      let targetPaths = [targetPath];
-      // If coordinates are provided, also query global topclick stations to ensure stations are found at EVERY corner of the world (oceans, remote areas, islands, etc.)
-      if (userLat !== null && userLng !== null && targetPath.indexOf("topclick") === -1) {
-        targetPaths.push(`/json/stations/topclick/250?hidebroken=true`);
-      }
+      const url = `${mirror}${targetPath}`;
+      console.log(`[Radio Browser Proxy] Scanning: ${url}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6500);
 
-      let allStations: any[] = [];
-      for (const p of targetPaths) {
-        const url = `${mirror}${p}`;
-        console.log(`[Radio Browser Proxy] Scanning: ${url}`);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6500);
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "WorldRadioTranslator/2.0.0 (surendazz15@gmail.com)"
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-        try {
-          const response = await fetch(url, {
-            headers: {
-              "User-Agent": "WorldRadioTranslator/2.0.0 (surendazz15@gmail.com)"
-            },
-            signal: controller.signal
-          });
-          clearTimeout(timeoutId);
-          if (response.ok) {
-            const data: any[] = await response.json();
-            if (Array.isArray(data)) {
-              allStations.push(...data);
-            }
-          }
-        } catch (subErr) {
-          clearTimeout(timeoutId);
+      if (response.ok) {
+        const stations: any[] = await response.json();
+        if (!Array.isArray(stations) || stations.length === 0) {
+          continue; // try next mirror
         }
-      }
 
-      if (allStations.length > 0) {
         // Sanitize and filter out unplayable streams and deduplicate by stationuuid
         const seenUuids = new Set<string>();
-        let valid = allStations.filter((s) => {
+        let valid = stations.filter((s) => {
           const streamUrl = s.url_resolved || s.url;
           if (!streamUrl || typeof streamUrl !== "string" || !streamUrl.startsWith("http")) return false;
           const uuid = s.stationuuid || s.name;
@@ -1293,7 +1279,7 @@ app.get("/api/stations", async (req, res) => {
           return true;
         });
 
-        // If coordinates provided, compute precise distance for EVERY station worldwide with GPS data
+        // If coordinates provided, compute precise distance for stations with GPS data
         if (userLat !== null && userLng !== null) {
           valid = valid.map((s) => {
             const sLat = s.geo_lat !== null && s.geo_lat !== undefined ? parseFloat(s.geo_lat) : null;
@@ -1308,29 +1294,22 @@ app.get("/api/stations", async (req, res) => {
               };
             }
 
-            // For stations without explicit GPS data, estimate or fallback
             return {
               ...s,
               distanceKm: 99999,
-              withinRadius: false
+              withinRadius: true
             };
           });
 
-          // Sort prioritizing stations with valid GPS distance by proximity, followed by popular stations
+          // Sort strictly by proximity / distance if available, then by clickcount
           valid.sort((a, b) => {
-            const aHasDist = a.distanceKm !== undefined && a.distanceKm !== 99999;
-            const bHasDist = b.distanceKm !== undefined && b.distanceKm !== 99999;
-
-            if (aHasDist && bHasDist) {
-              return a.distanceKm - b.distanceKm;
-            }
-            if (aHasDist) return -1;
-            if (bHasDist) return 1;
+            const aDist = a.distanceKm !== undefined ? a.distanceKm : 99999;
+            const bDist = b.distanceKm !== undefined ? b.distanceKm : 99999;
+            if (aDist !== bDist) return aDist - bDist;
             return (b.clickcount || b.votes || 0) - (a.clickcount || a.votes || 0);
           });
         }
 
-        // Ensure crossOrigin CORS headers and dynamic caching
         res.setHeader("Cache-Control", "public, max-age=180");
         return res.json(valid.slice(0, parsedLimit));
       }

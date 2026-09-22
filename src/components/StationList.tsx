@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { RadioStation, LocationGeoProfile } from "../types";
 import { Radio, Play, Volume2, ShieldAlert, BadgeCheck, Search, Sparkles, Heart, Filter, X, Navigation } from "lucide-react";
 import { getCuratedStationsForCountry } from "../data/regionalBroadcasters";
+import { getStationsWithinRadius } from "../services/worldCountryStations";
 import { apiFetch } from "../lib/api";
 
 interface StationListProps {
@@ -91,60 +92,6 @@ export default function StationList({
       clickcount: 19451,
       codec: "MP3",
       bitrate: 128
-    },
-    {
-      changeid: "glob-4",
-      stationuuid: "global-defcon",
-      name: "SomaFM - DEF CON Radio",
-      url: "https://ice1.somafm.com/defcon-128-mp3",
-      url_resolved: "https://ice1.somafm.com/defcon-128-mp3",
-      homepage: "https://somafm.com/defcon/",
-      favicon: "https://somafm.com/img3/defcon120.png",
-      tags: "electronic,synthwave,hacker,chill,ambient",
-      country: "United States",
-      countrycode: "US",
-      state: "Las Vegas / SF",
-      language: "english",
-      votes: 11200,
-      clickcount: 16290,
-      codec: "MP3",
-      bitrate: 128
-    },
-    {
-      changeid: "glob-5",
-      stationuuid: "global-jazzradio",
-      name: "Jazz Radio France",
-      url: "https://jazzradio.ice.infomaniak.ch/jazzradio-high.mp3",
-      url_resolved: "https://jazzradio.ice.infomaniak.ch/jazzradio-high.mp3",
-      homepage: "https://www.jazzradio.fr",
-      favicon: "https://www.jazzradio.fr/favicon.ico",
-      tags: "jazz,blues,soul,classic",
-      country: "France",
-      countrycode: "FR",
-      state: "Lyon",
-      language: "french",
-      votes: 14520,
-      clickcount: 18200,
-      codec: "MP3",
-      bitrate: 128
-    },
-    {
-      changeid: "glob-6",
-      stationuuid: "global-classicvinyl",
-      name: "Classic Vinyl HD",
-      url: "https://icecast.walmradio.com:8443/classic",
-      url_resolved: "https://icecast.walmradio.com:8443/classic",
-      homepage: "https://walmradio.com/classic",
-      favicon: "https://icecast.walmradio.com:8443/classic.jpg",
-      tags: "classics,oldies,jazz,relaxation,easy listening",
-      country: "United States",
-      countrycode: "US",
-      state: "New York, NY",
-      language: "english",
-      votes: 301845,
-      clickcount: 24200,
-      codec: "MP3",
-      bitrate: 320
     }
   ];
 
@@ -154,14 +101,30 @@ export default function StationList({
     setSearchQuery("");
 
     const scanRadius = radiusKm || 250;
+    
+    // 1. If map pin is clicked with coordinates, calculate and filter from pre-listed offline country database within 250km radius!
+    if (selectedCoords) {
+      const offlineMatched = getStationsWithinRadius(selectedCoords.lat, selectedCoords.lng, scanRadius);
+      if (offlineMatched && offlineMatched.length > 0) {
+        setStations(offlineMatched);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2. Otherwise load by country profile
     const primaryCode = (currentCountryProfile?.countryCode || "").toUpperCase().trim();
     const primaryCountry = (currentCountryProfile?.country || "").trim();
     const curatedRegional = getCuratedStationsForCountry(primaryCode);
 
-    // Single unified API scan with coordinates and radius (taking absolute precedence when user clicks map)
-    const primaryUrl = selectedCoords
-      ? `/api/stations?limit=100&lat=${selectedCoords.lat}&lng=${selectedCoords.lng}&radiusKm=${scanRadius}`
-      : primaryCode
+    if (curatedRegional.length > 0) {
+      setStations(curatedRegional);
+      setLoading(false);
+      return;
+    }
+
+    // 3. Fallback to API / offline database
+    const primaryUrl = primaryCode
       ? `/api/stations?countrycode=${encodeURIComponent(primaryCode.toLowerCase())}&country=${encodeURIComponent(primaryCountry)}&limit=100`
       : `/api/stations?limit=100`;
 
@@ -172,45 +135,23 @@ export default function StationList({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<RadioStation[]>;
       })
-      .then(async (stations) => {
+      .then(async (stationsData) => {
         if (!isSubscribed) return;
-        let validStations = (stations || []).filter((s) => {
+        let validStations = (stationsData || []).filter((s) => {
           const u = s.url_resolved || s.url;
           return u && u.startsWith("http");
         });
 
-        // If local API proxy returned empty, try direct public Radio Browser mirror
         if (validStations.length === 0 && primaryCode) {
-          try {
-            const mirrorRes = await fetch(
-              `https://de1.api.radio-browser.info/json/stations/bycountrycodeexact/${primaryCode.toLowerCase()}?limit=100&hidebroken=true`
-            );
-            if (mirrorRes.ok) {
-              const mirrorData = await mirrorRes.json();
-              if (Array.isArray(mirrorData) && mirrorData.length > 0) {
-                validStations = mirrorData;
-              }
-            }
-          } catch (mirrorErr) {
-            console.warn("Direct mirror fallback failed:", mirrorErr);
+          const offlineFallback = getCuratedStationsForCountry(primaryCode);
+          if (offlineFallback.length > 0) {
+            validStations = offlineFallback;
           }
         }
 
-        // If still empty, use authentic curated stations for this country
-        if (validStations.length === 0 && curatedRegional.length > 0) {
-          validStations = curatedRegional;
-        }
-
         if (validStations.length === 0) {
-          // If no specific stations found for remote ocean / isolated point, use global default
-          setStations(
-            DEFAULT_GLOBAL_STATIONS.map((s) => ({
-              ...s,
-              state: `${primaryCountry || "Scanned Area"} & Oceanic Relays`
-            }))
-          );
+          setStations(DEFAULT_GLOBAL_STATIONS);
         } else {
-          // Deduplicate
           const seen = new Set<string>();
           const deduped = validStations.filter((s) => {
             if (!s.stationuuid || seen.has(s.stationuuid)) return false;
@@ -221,33 +162,18 @@ export default function StationList({
         }
         setLoading(false);
       })
-      .catch(async (err) => {
+      .catch((err) => {
         if (!isSubscribed) return;
-        console.warn("Station scan error, attempting client-side fallback:", err);
-        // Fallback directly to mirror or curated regional stations
+        console.warn("Station scan network error, using offline database:", err);
         if (primaryCode) {
-          try {
-            const mirrorRes = await fetch(
-              `https://de1.api.radio-browser.info/json/stations/bycountrycodeexact/${primaryCode.toLowerCase()}?limit=100&hidebroken=true`
-            );
-            if (mirrorRes.ok) {
-              const mirrorData = await mirrorRes.json();
-              if (Array.isArray(mirrorData) && mirrorData.length > 0) {
-                setStations(mirrorData.slice(0, 100));
-                setLoading(false);
-                return;
-              }
-            }
-          } catch (mirrorErr) {
-            // Ignore mirror error
+          const offlineFallback = getCuratedStationsForCountry(primaryCode);
+          if (offlineFallback.length > 0) {
+            setStations(offlineFallback);
+            setLoading(false);
+            return;
           }
         }
-
-        if (curatedRegional.length > 0) {
-          setStations(curatedRegional);
-        } else {
-          setStations(DEFAULT_GLOBAL_STATIONS);
-        }
+        setStations(DEFAULT_GLOBAL_STATIONS);
         setLoading(false);
       });
 
